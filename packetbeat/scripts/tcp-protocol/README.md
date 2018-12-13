@@ -286,3 +286,11 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 - Prepare pcap (with tcpdump) for testing protocol analyzer during development
 
 - At least add tests using pcaps to system/test.
+
+
+### Grant Stuff
+- Create fields in _meta
+- The parsers seem to be a list of callbacks for dealing with various types of packtes
+### Questions
+
+What is the group type?

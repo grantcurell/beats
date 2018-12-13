@@ -25,7 +25,9 @@ import (
 
 var Name = "packetbeat"
 
-// Setups and Runs Packetbeat
+// Sets up and Runs Packetbeat. Execute refers to the cobra command line library
+// see https://github.com/spf13/cobra for more information. This will effectively
+// run the beat.
 func main() {
 	if err := cmd.RootCmd.Execute(); err != nil {
 		os.Exit(1)

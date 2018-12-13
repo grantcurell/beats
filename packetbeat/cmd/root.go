@@ -35,6 +35,9 @@ var Name = "packetbeat"
 // RootCmd to handle beats cli
 var RootCmd *cmd.BeatsRootCmd
 
+// Function used by cobra to add comman line arguments specific to Packetbeat
+// See https://github.com/spf13/cobra for more information. The end result is
+// a complete packetbeat commandline call.
 func init() {
 	var runFlags = pflag.NewFlagSet(Name, pflag.ExitOnError)
 	runFlags.AddGoFlag(flag.CommandLine.Lookup("I"))
