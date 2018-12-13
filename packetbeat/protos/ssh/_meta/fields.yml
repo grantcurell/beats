@@ -1,3 +1,119 @@
 - key: ssh
   title: "SSH"
   description: SSH-specific event fields
+  fields:
+    - name: ssh
+      type: group
+      fields:
+        - name: version
+          type: integer
+          possible_values:
+            - 0
+            - 1
+            - 2
+
+        - name: protocol
+          type: keyword
+
+        - name: packet_length
+          type: integer
+
+        - name: packet_length_encrypted
+          type: binary
+
+        - name: padding_length
+          type: short
+
+        - name: padding_length_encrypted
+          type: binary
+
+        - name: padding_length
+          type: short
+
+        - name: payload
+          type: binary
+
+        - name: encrypted_packet
+          type: binary
+
+        - name: padding_string
+          type: binary
+
+        - name: message_authentication_code
+          type: binary
+
+        - name: ssh_message_code
+          type: short
+
+        - name: sshv2_message_code
+          type: short
+
+        - name: sshv2_key_exchange_diffie_hellman_message_code
+          type: short
+
+        - name: sshv2_key_exchange_diffie_hellman_gex_message_code
+          type: short
+
+        - name: sshv2_key_exchange_elliptical_curve_diffie_hellman_message_code
+          type: short
+
+        - name: cookie
+          type: binary
+
+        - name: kex_algorithms_string
+          type: keyword
+          
+        - name: server_host_key_algorithms_string
+        - name: encryption_algorithms_client_to_server_string
+        - name: encryption_algorithms_server_to_client_string
+        - name: mac_algorithms_client_to_server_string
+        - name: mac_algorithms_server_to_client_string
+        - name: compression_algorithms_client_to_server_string
+        - name: compression_algorithms_server_to_client_string
+        - name: languages_client_to_server_string
+        - name: languages_server_to_client_string
+        - name: kex_algorithms_length
+        - name: server_host_key_algorithms_length
+        - name: encryption_algorithms_client_to_server_length
+        - name: encryption_algorithms_server_to_client_length
+        - name: mac_algorithms_client_to_server_length
+        - name: mac_algorithms_server_to_client_length
+        - name: compression_algorithms_client_to_server_length
+        - name: compression_algorithms_server_to_client_length
+        - name: languages_client_to_server_length
+        - name: languages_server_to_client_length
+        - name: first_kex_packet_follows
+        - name: reserved
+        - name: host_key_length
+        - name: host_key_type_length
+        - name: host_key_type
+        - name: host_key_data
+        - name: rsa_modulus_(n)
+        - name: rsa_public_exponent_(e)
+        - name: dsa_prime_modulus_(p)
+        - name: dsa_prime_divisor_(q)
+        - name: dsa_subgroup_generator_(g)
+        - name: dsa_public_key_(y)
+        - name: ecdsa_elliptic_curve_identifier
+        - name: ecdsa_elliptic_curve_identifier_length
+        - name: ecdsa_public_key_(q)
+        - name: ecdsa_public_key_length
+        - name: kex_h_signature
+        - name: kex_h_signature_length
+        - name: dh_client_e
+        - name: dh_server_f
+        - name: dh_gex_min
+        - name: minimal_acceptable_group_size
+        - name: dh_gex_number_of_bits
+        - name: preferred_group_size
+        - name: dh_gex_max
+        - name: maximal_acceptable_group_size
+        - name: dh_gex_modulus_(p)
+        - name: dh_gex_base_(g)
+        - name: ecdh_client's_ephemeral_public_key_(q_c)
+        - name: ecdh_client's_ephemeral_public_key_length
+        - name: ecdh_server's_ephemeral_public_key_(q_s)
+        - name: ecdh_server's_ephemeral_public_key_length
+        - name: multi_precision_integer_length
+
+            

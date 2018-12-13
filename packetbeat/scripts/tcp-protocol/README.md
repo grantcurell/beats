@@ -291,6 +291,8 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 ### Grant Stuff
 - Create fields in _meta
 - The parsers seem to be a list of callbacks for dealing with various types of packtes
-### Questions
 
-What is the group type?
+### Wireshark parser
+- needs to parse hf fields
+- Extract the names from all the fields
+  cat stuff | cut -d '{' -f 2 | cut -d ',' -f 1 | grep -Po '".*?"' | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | sed 's/"//g' | sed  -e 's/^/- name: /'
