@@ -79,6 +79,7 @@ func (p *parser) append(data []byte) error {
 }
 
 func (p *parser) feed(ts time.Time, data []byte) error {
+
 	if err := p.append(data); err != nil {
 		return err
 	}
@@ -112,6 +113,7 @@ func (p *parser) feed(ts time.Time, data []byte) error {
 
 // Your protocol will begin parsing here. This is where you should start
 func (p *parser) newMessage(ts time.Time) *message {
+
 	return &message{
 		Message: applayer.Message{
 			Ts: ts,

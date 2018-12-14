@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/elastic/beats/libbeat/common"
@@ -38,10 +39,14 @@ var (
 )
 
 func init() {
+
+	// Register your newly created protocol with Packetbeat. This is what makes
+	// your protocol available for use.
 	protos.Register("ssh", New)
 }
 
-// New create and initializes a new ssh protocol analyzer instance.
+// New create and initializes a new ssh protocol analyzer instance. This is all
+// boilerplate code and for the most part will not require modification.
 func New(
 	testMode bool,
 	results protos.Reporter,
@@ -61,6 +66,7 @@ func New(
 	return p, nil
 }
 
+// TODO also appears to be boilerplate code
 func (sp *sshPlugin) init(results protos.Reporter, config *sshConfig) error {
 	if err := sp.setFromConfig(config); err != nil {
 		return err
@@ -71,6 +77,7 @@ func (sp *sshPlugin) init(results protos.Reporter, config *sshConfig) error {
 	return nil
 }
 
+// TODO more boilerplate code?
 func (sp *sshPlugin) setFromConfig(config *sshConfig) error {
 
 	// set module configuration
@@ -94,6 +101,14 @@ func (sp *sshPlugin) setFromConfig(config *sshConfig) error {
 	return nil
 }
 
+/*
+func (s *stream) PrepareForNewMessage() {
+	parser := &s.parser
+	s.Stream.Reset()
+	parser.reset()
+}
+*/
+
 // ConnectionTimeout returns the per stream connection timeout.
 // Return <=0 to set default tcp module transaction timeout.
 func (sp *sshPlugin) ConnectionTimeout() time.Duration {
@@ -109,19 +124,28 @@ func (sp *sshPlugin) GetPorts() []int {
 // state shall be dropped (e.g. parser not in sync with tcp stream)
 func (sp *sshPlugin) Parse(
 	pkt *protos.Packet,
-	tcptuple *common.TCPTuple, dir uint8,
+	tcptuple *common.TCPTuple,
+	dir uint8,
 	private protos.ProtocolData,
 ) protos.ProtocolData {
+	//debug.PrintStack()
 	defer logp.Recover("Parse sshPlugin exception")
 
 	conn := sp.ensureConnection(private)
+	fmt.Println(dir)
 	st := conn.streams[dir]
+	fmt.Println(st) // TODO: This keeps coming out NIL
+
+	// This is some boilerplate failure code in the event that the TCP stream
+	// is empty
 	if st == nil {
 		st = &stream{}
 		st.parser.init(&sp.parserConfig, func(msg *message) error {
 			return conn.trans.onMessage(tcptuple.IPPort(), dir, msg)
 		})
 		conn.streams[dir] = st
+	} else {
+		fmt.Println(st.parser.message)
 	}
 
 	if err := st.parser.feed(pkt.Ts, pkt.Payload); err != nil {

@@ -291,8 +291,33 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 ### Grant Stuff
 - Create fields in _meta
 - The parsers seem to be a list of callbacks for dealing with various types of packtes
+- Workflow is Sniffer -> decoder -> tcp/udp -> add packet -> your protocol
 
 ### Wireshark parser
 - needs to parse hf fields
 - Extract the names from all the fields
   cat stuff | cut -d '{' -f 2 | cut -d ',' -f 1 | grep -Po '".*?"' | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | sed 's/"//g' | sed  -e 's/^/- name: /'
+
+### Call stack
+runtime/debug.Stack(0xe370db, 0xc002197b78, 0x9fcc02)
+        /usr/local/go/src/runtime/debug/stack.go:24 +0xa7
+runtime/debug.PrintStack()
+        /usr/local/go/src/runtime/debug/stack.go:16 +0x22
+github.com/elastic/beats/packetbeat/protos/http.(*httpPlugin).Parse(0xc00003b970, 0xc0022a18c0, 0xc0017b4e88, 0xc00003b901, 0x0, 0x0, 0x0, 0x0)
+        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http.go:245 +0x63
+github.com/elastic/beats/packetbeat/protos/tcp.(*TCPStream).addPacket(0xc002197cb0, 0xc0022a18c0, 0xc0011100a0)
+        /root/go/src/github.com/elastic/beats/packetbeat/protos/tcp/tcp.go:144 +0x159
+github.com/elastic/beats/packetbeat/protos/tcp.(*TCP).Process(0xc0016b27d0, 0xc001734000, 0xc0011100a0, 0xc0022a18c0)
+        /root/go/src/github.com/elastic/beats/packetbeat/protos/tcp/tcp.go:239 +0x327
+github.com/elastic/beats/packetbeat/decoder.(*Decoder).onTCP(0xc00110fb00, 0xc0022a18c0)
+        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:334 +0xdd
+github.com/elastic/beats/packetbeat/decoder.(*Decoder).process(0xc00110fb00, 0xc0022a18c0, 0x2c, 0x1b7, 0x193f060, 0xc00110fb00)
+        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:275 +0x1dd
+github.com/elastic/beats/packetbeat/decoder.(*Decoder).OnPacket(0xc00110fb00, 0xc001d1e444, 0x1b7, 0x1b7, 0xc001d2c1e0)
+        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:181 +0x317
+github.com/elastic/beats/packetbeat/sniffer.(*Sniffer).Run(0xc0016e6000, 0x0, 0x0)
+        /root/go/src/github.com/elastic/beats/packetbeat/sniffer/sniffer.go:210 +0x466
+github.com/elastic/beats/packetbeat/beater.(*packetbeat).Run.func2(0xc0016c0310, 0xc0011357c0, 0xc0016ab380)
+        /root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:225 +0x60
+created by github.com/elastic/beats/packetbeat/beater.(*packetbeat).Run
+        /root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:222 +0x129

@@ -5,7 +5,6 @@ import (
 
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
-	"github.com/elastic/beats/packetbeat/procs"
 	"github.com/elastic/beats/packetbeat/protos/applayer"
 )
 
@@ -43,7 +42,7 @@ func (trans *transactions) onMessage(
 
 	msg.Tuple = *tuple
 	msg.Transport = applayer.TransportTCP
-	msg.CmdlineTuple = procs.ProcWatcher.FindProcessesTuple(&msg.Tuple)
+	//msg.CmdlineTuple = procs.ProcWatcher.FindProcessesTuple(&msg.Tuple)
 
 	if msg.IsRequest {
 		if isDebug {

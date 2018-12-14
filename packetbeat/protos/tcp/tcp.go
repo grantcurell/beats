@@ -131,6 +131,7 @@ func (conn *TCPConnection) String() string {
 func (stream *TCPStream) addPacket(pkt *protos.Packet, tcphdr *layers.TCP) {
 	conn := stream.conn
 	mod := conn.tcp.protocols.GetTCP(conn.protocol)
+
 	if mod == nil {
 		if isDebug {
 			protocol := conn.protocol
