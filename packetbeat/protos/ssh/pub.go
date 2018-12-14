@@ -1,6 +1,9 @@
 package ssh
 
 import (
+	"os"
+	"runtime/debug"
+
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
 
@@ -9,8 +12,8 @@ import (
 
 // Transaction Publisher.
 type transPub struct {
-	sendRequest        bool
-	sendResponse       bool
+	sendRequest  bool
+	sendResponse bool
 
 	results protos.Reporter
 }
@@ -26,6 +29,8 @@ func (pub *transPub) onTransaction(requ, resp *message) error {
 
 func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 	status := common.OK_STATUS
+	debug.PrintStack()
+	os.Exit(3)
 
 	// resp_time in milliseconds
 	responseTime := int32(resp.Ts.Sub(requ.Ts).Nanoseconds() / 1e6)
@@ -65,6 +70,6 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 
 	return beat.Event{
 		Timestamp: requ.Ts,
-		Fields: fields,
+		Fields:    fields,
 	}
 }

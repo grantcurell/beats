@@ -430,6 +430,38 @@ func parseCommaSeparatedList(s common.NetString) (list []string) {
 }
 
 func (*parser) parseBody(s *stream, m *message) (ok, complete bool) {
+	/*
+			goroutine 129 [running]:
+		runtime/debug.Stack(0xc001603a28, 0xa, 0x20)
+		        /usr/local/go/src/runtime/debug/stack.go:24 +0xa7
+		runtime/debug.PrintStack()
+		        /usr/local/go/src/runtime/debug/stack.go:16 +0x22
+		github.com/elastic/beats/packetbeat/protos/http.(*parser).parseBody(0xc001603b70, 0xc00008c140, 0xc000486a00, 0x1010101)
+		        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http_parser.go:435 +0x34
+		github.com/elastic/beats/packetbeat/protos/http.(*parser).parse(0xc001603b70, 0xc00008c140, 0x0, 0xc000068a80)
+		        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http_parser.go:141 +0x1ab
+		github.com/elastic/beats/packetbeat/protos/http.(*httpPlugin).doParse(0xc0000c6dc0, 0xc0019c32c0, 0xc001f386c0, 0xc00003a858, 0x7f73e51ac101, 0xc0000c6dc0)
+		        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http.go:515 +0x190
+		github.com/elastic/beats/packetbeat/protos/http.(*httpPlugin).Parse(0xc0000c6dc0, 0xc001f386c0, 0xc00003a858, 0xc0000c6d01, 0x0, 0x0, 0x0, 0x0)
+		        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http.go:274 +0xab
+		github.com/elastic/beats/packetbeat/protos/tcp.(*TCPStream).addPacket(0xc001603cb0, 0xc001f386c0, 0xc00113b2a0)
+		        /root/go/src/github.com/elastic/beats/packetbeat/protos/tcp/tcp.go:145 +0x159
+		github.com/elastic/beats/packetbeat/protos/tcp.(*TCP).Process(0xc0015f8640, 0xc00162ca40, 0xc00113b2a0, 0xc001f386c0)
+		        /root/go/src/github.com/elastic/beats/packetbeat/protos/tcp/tcp.go:240 +0x327
+		github.com/elastic/beats/packetbeat/decoder.(*Decoder).onTCP(0xc00113ad00, 0xc001f386c0)
+		        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:334 +0xdd
+		github.com/elastic/beats/packetbeat/decoder.(*Decoder).process(0xc00113ad00, 0xc001f386c0, 0x2c, 0x1b7, 0x193efa0, 0xc00113ad00)
+		        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:275 +0x1dd
+		github.com/elastic/beats/packetbeat/decoder.(*Decoder).OnPacket(0xc00113ad00, 0xc000c56a44, 0x1b7, 0x1b7, 0xc0019c3290)
+		        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:181 +0x317
+		github.com/elastic/beats/packetbeat/sniffer.(*Sniffer).Run(0xc00167e0b0, 0x0, 0x0)
+		        /root/go/src/github.com/elastic/beats/packetbeat/sniffer/sniffer.go:210 +0x466
+		github.com/elastic/beats/packetbeat/beater.(*packetbeat).Run.func2(0xc0015f2270, 0xc001373cc0, 0xc0017aa720)
+		        /root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:225 +0x60
+		created by github.com/elastic/beats/packetbeat/beater.(*packetbeat).Run
+		        /root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:222 +0x129
+
+	*/
 	nbytes := len(s.data)
 	if !m.hasContentLength && (bytes.Equal(m.connection, constClose) ||
 		(isVersion(m.version, 1, 0) && !bytes.Equal(m.connection, constKeepAlive))) {
