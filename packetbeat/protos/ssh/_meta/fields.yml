@@ -1,3 +1,5 @@
+# This file defines the fields which will appear in Kibana in heirarchical order
+
 - key: ssh
   title: "SSH"
   description: SSH-specific event fields

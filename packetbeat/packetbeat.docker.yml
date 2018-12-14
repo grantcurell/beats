@@ -24,6 +24,9 @@ packetbeat.protocols.pgsql:
 packetbeat.protocols.redis:
   ports: [6379]
 
+packetbeat.protocols.ssh:
+  ports: [22]
+
 packetbeat.protocols.thrift:
   ports: [9090]
 

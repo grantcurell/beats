@@ -333,6 +333,14 @@ packetbeat.protocols:
   # incoming responses, but sent to Elasticsearch immediately.
   #transaction_timeout: 10s
 
+- type: ssh
+  # Enable SSH monitoring. Default: true
+  #enabled: true
+
+  # Configure the ports where to listen for SSH traffic. You can disable
+  # the SSH protocol by commenting out the list of ports.
+  ports: [22]
+
 - type: thrift
   # Enable thrift monitoring. Default: true
   #enabled: true

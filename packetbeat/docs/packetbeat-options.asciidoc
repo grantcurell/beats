@@ -434,6 +434,9 @@ packetbeat.protocols:
 - type: redis
   ports: [6379]
 
+- type: ssh
+  ports: [22]
+
 - type: pgsql
   ports: [5432]
 
