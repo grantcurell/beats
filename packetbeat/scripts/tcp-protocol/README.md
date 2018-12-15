@@ -293,6 +293,7 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 - The parsers seem to be a list of callbacks for dealing with various types of packtes
 - Workflow is Sniffer -> decoder -> tcp/udp -> add packet -> your protocol
 - dir is short for direction. You use it to note which direction traffic is going
+- Everything leads to building a results package that has all the fields populated
 
 ### Wireshark parser
 - needs to parse hf fields

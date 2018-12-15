@@ -4,12 +4,288 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 
 	"github.com/elastic/beats/packetbeat/protos"
 	"github.com/elastic/beats/packetbeat/protos/tcp"
 )
+
+const(
+	/* SSH Version 1 definition , from openssh ssh1.h */
+	SSH1_MSG_NONE         = 0   /* no message */
+	SSH1_MSG_DISCONNECT   = 1   /* cause (string) */
+	SSH1_SMSG_PUBLIC_KEY  = 2   /* ck,msk,srvk,hostk */
+	SSH1_CMSG_SESSION_KEY = 3   /* key (BIGNUM) */
+	SSH1_CMSG_USER        = 4   /* user (string) */
+
+
+	SSH_VERSION_UNKNOWN   = 0
+	SSH_VERSION_1         = 1
+	SSH_VERSION_2         = 2
+)
+
+type ssh_peer_data struct {
+	uint   counter
+
+	uint32 frame_version_start
+	uint32 frame_version_end
+
+	int32 frame_key_start
+	int32 frame_key_end
+	int frame_key_end_offset
+
+	uint8*  kex_proposal
+
+	/* For all subsequent proposals,
+		[0] is client-to-server and [1] is server-to-client. */
+	CLIENT_TO_SERVER_PROPOSAL int `0`
+	SERVER_TO_CLIENT_PROPOSAL int `1`
+
+	mac_proposals [2]*uint8
+	uint8*  mac
+	int    mac_length
+
+	enc_proposals [2]*uint8
+	uint8*  enc
+
+	comp_proposals [2]*uint8
+	uint8*  comp
+
+	int    length_is_plaintext
+};
+	
+type ssh_flow_data struct {
+	guint   version;
+
+	gchar*  kex;
+	int   (*kex_specific_dissector)(uint8 msg_code, tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree);
+
+	/* [0] is client's, [1] is server's */
+	CLIENT_PEER_DATA int `0`
+	SERVER_PEER_DATA int `1`
+	peer_data [2]ssh_peer_data
+}
+	
+int proto_ssh = -1;
+
+/* Version exchange */
+int hf_ssh_protocol = -1;
+
+/* Framing */
+int hf_ssh_packet_length= -1;
+int hf_ssh_packet_length_encrypted= -1;
+int hf_ssh_padding_length= -1;
+int hf_ssh_payload= -1;
+int hf_ssh_encrypted_packet= -1;
+int hf_ssh_padding_string= -1;
+int hf_ssh_mac_string= -1;
+
+/* Message codes */
+int hf_ssh_msg_code = -1;
+int hf_ssh2_msg_code = -1;
+int hf_ssh2_kex_dh_msg_code = -1;
+int hf_ssh2_kex_dh_gex_msg_code = -1;
+int hf_ssh2_kex_ecdh_msg_code = -1;
+
+/* Algorithm negotiation */
+int hf_ssh_cookie = -1;
+int hf_ssh_kex_algorithms = -1;
+int hf_ssh_server_host_key_algorithms = -1;
+int hf_ssh_encryption_algorithms_client_to_server = -1;
+int hf_ssh_encryption_algorithms_server_to_client = -1;
+int hf_ssh_mac_algorithms_client_to_server=-1;
+int hf_ssh_mac_algorithms_server_to_client=-1;
+int hf_ssh_compression_algorithms_client_to_server=-1;
+int hf_ssh_compression_algorithms_server_to_client=-1;
+int hf_ssh_languages_client_to_server=-1;
+int hf_ssh_languages_server_to_client=-1;
+int hf_ssh_kex_algorithms_length= -1;
+int hf_ssh_server_host_key_algorithms_length= -1;
+int hf_ssh_encryption_algorithms_client_to_server_length= -1;
+int hf_ssh_encryption_algorithms_server_to_client_length= -1;
+int hf_ssh_mac_algorithms_client_to_server_length= -1;
+int hf_ssh_mac_algorithms_server_to_client_length= -1;
+int hf_ssh_compression_algorithms_client_to_server_length= -1;
+int hf_ssh_compression_algorithms_server_to_client_length= -1;
+int hf_ssh_languages_client_to_server_length= -1;
+int hf_ssh_languages_server_to_client_length= -1;
+int hf_ssh_first_kex_packet_follows = -1;
+int hf_ssh_kex_reserved = -1;
+
+/* Key exchange common elements */
+int hf_ssh_hostkey_length = -1;
+int hf_ssh_hostkey_type_length = -1;
+int hf_ssh_hostkey_type = -1;
+int hf_ssh_hostkey_data = -1;
+int hf_ssh_hostkey_rsa_n = -1;
+int hf_ssh_hostkey_rsa_e = -1;
+int hf_ssh_hostkey_dsa_p = -1;
+int hf_ssh_hostkey_dsa_q = -1;
+int hf_ssh_hostkey_dsa_g = -1;
+int hf_ssh_hostkey_dsa_y = -1;
+int hf_ssh_hostkey_ecdsa_curve_id = -1;
+int hf_ssh_hostkey_ecdsa_curve_id_length = -1;
+int hf_ssh_hostkey_ecdsa_q = -1;
+int hf_ssh_hostkey_ecdsa_q_length = -1;
+int hf_ssh_kex_h_sig = -1;
+int hf_ssh_kex_h_sig_length = -1;
+
+/* Key exchange: Diffie-Hellman */
+int hf_ssh_dh_e = -1;
+int hf_ssh_dh_f = -1;
+
+/* Key exchange: Diffie-Hellman Group Exchange */
+int hf_ssh_dh_gex_min = -1;
+int hf_ssh_dh_gex_nbits = -1;
+int hf_ssh_dh_gex_max = -1;
+int hf_ssh_dh_gex_p = -1;
+int hf_ssh_dh_gex_g = -1;
+
+/* Key exchange: Elliptic Curve Diffie-Hellman */
+int hf_ssh_ecdh_q_c = -1;
+int hf_ssh_ecdh_q_c_length = -1;
+int hf_ssh_ecdh_q_s = -1;
+int hf_ssh_ecdh_q_s_length = -1;
+
+/* Miscellaneous */
+int hf_ssh_mpint_length = -1;
+
+int ett_ssh = -1;
+int ett_key_exchange = -1;
+int ett_key_exchange_host_key = -1;
+int ett_key_init = -1;
+int ett_ssh1 = -1;
+int ett_ssh2 = -1;
+
+expert_field ei_ssh_packet_length = EI_INIT;
+
+gboolean ssh_desegment = TRUE;
+
+dissector_handle_t ssh_handle;
+
+const(
+	// 29418/tcp: Gerrit Code Review
+	TCP_RANGE_SSH  = "22,29418"
+	SCTP_PORT_SSH = 22
+	
+	/* Message Numbers (from RFC 4250) (1-255) */
+	
+	/* Transport layer protocol: generic (1-19) */
+	SSH_MSG_DISCONNECT        = 1
+	SSH_MSG_IGNORE            = 2
+	SSH_MSG_UNIMPLEMENTED     = 3
+	SSH_MSG_DEBUG             = 4
+	SSH_MSG_SERVICE_REQUEST   = 5
+	SSH_MSG_SERVICE_ACCEPT    = 6
+	
+	/* Transport layer protocol: Algorithm negotiation (20-29) */
+	SSH_MSG_KEXINIT           = 20
+	SSH_MSG_NEWKEYS           = 21
+	
+	/* Transport layer: Key exchange method specific (reusable) (30-49) */
+	SSH_MSG_KEXDH_INIT        = 30
+	SSH_MSG_KEXDH_REPLY       = 31
+	
+	SSH_MSG_KEX_DH_GEX_REQUEST_OLD = 30
+	SSH_MSG_KEX_DH_GEX_GROUP       = 31
+	SSH_MSG_KEX_DH_GEX_INIT        = 32
+	SSH_MSG_KEX_DH_GEX_REPLY       = 33
+	SSH_MSG_KEX_DH_GEX_REQUEST     = 34
+	
+	SSH_MSG_KEX_ECDH_INIT     = 30
+	SSH_MSG_KEX_ECDH_REPLY    = 31
+	
+	/* User authentication protocol: generic (50-59) */
+	SSH_MSG_USERAUTH_REQUEST  = 50
+	SSH_MSG_USERAUTH_FAILURE  = 51
+	SSH_MSG_USERAUTH_SUCCESS  = 52
+	SSH_MSG_USERAUTH_BANNER   = 53
+	
+	/* User authentication protocol: method specific (reusable) (50-79) */
+	
+	/* Connection protocol: generic (80-89) */
+	SSH_MSG_GLOBAL_REQUEST        = 80
+	SSH_MSG_REQUEST_SUCCESS       = 81
+	SSH_MSG_REQUEST_FAILURE       = 82
+	
+	/* Connection protocol: channel related messages (90-127) */
+	SSH_MSG_CHANNEL_OPEN              = 90
+	SSH_MSG_CHANNEL_OPEN_CONFIRMATION = 91
+	SSH_MSG_CHANNEL_OPEN_FAILURE      = 92
+	SSH_MSG_CHANNEL_WINDOW_ADJUST     = 93
+	SSH_MSG_CHANNEL_DATA              = 94
+	SSH_MSG_CHANNEL_EXTENDED_DATA     = 95
+	SSH_MSG_CHANNEL_EOF               = 96
+	SSH_MSG_CHANNEL_CLOSE             = 97
+	SSH_MSG_CHANNEL_REQUEST           = 98
+	SSH_MSG_CHANNEL_SUCCESS           = 99
+	SSH_MSG_CHANNEL_FAILURE           = 100
+
+	/* 128-191 reserved for client protocols */
+	/* 192-255 local extensions */
+)
+	
+const value_string ssh2_msg_vals[] = {
+	{ SSH_MSG_DISCONNECT,                "Disconnect" },
+	{ SSH_MSG_IGNORE,                    "Ignore" },
+	{ SSH_MSG_UNIMPLEMENTED,             "Unimplemented" },
+	{ SSH_MSG_DEBUG,                     "Debug" },
+	{ SSH_MSG_SERVICE_REQUEST,           "Service Request" },
+	{ SSH_MSG_SERVICE_ACCEPT,            "Service Accept" },
+	{ SSH_MSG_KEXINIT,                   "Key Exchange Init" },
+	{ SSH_MSG_NEWKEYS,                   "New Keys" },
+	{ SSH_MSG_USERAUTH_REQUEST,          "User Authentication Request" },
+	{ SSH_MSG_USERAUTH_FAILURE,          "User Authentication Failure" },
+	{ SSH_MSG_USERAUTH_SUCCESS,          "User Authentication Success" },
+	{ SSH_MSG_USERAUTH_BANNER,           "User Authentication Banner" },
+	{ SSH_MSG_GLOBAL_REQUEST,            "Global Request" },
+	{ SSH_MSG_REQUEST_SUCCESS,           "Request Success" },
+	{ SSH_MSG_REQUEST_FAILURE,           "Request Failure" },
+	{ SSH_MSG_CHANNEL_OPEN,              "Channel Open" },
+	{ SSH_MSG_CHANNEL_OPEN_CONFIRMATION, "Channel Open Confirmation" },
+	{ SSH_MSG_CHANNEL_OPEN_FAILURE,      "Channel Open Failure" },
+	{ SSH_MSG_CHANNEL_WINDOW_ADJUST,     "Window Adjust" },
+	{ SSH_MSG_CHANNEL_DATA,              "Channel Data" },
+	{ SSH_MSG_CHANNEL_EXTENDED_DATA,     "Channel Extended Data" },
+	{ SSH_MSG_CHANNEL_EOF,               "Channel EOF" },
+	{ SSH_MSG_CHANNEL_CLOSE,             "Channel Close" },
+	{ SSH_MSG_CHANNEL_REQUEST,           "Channel Request" },
+	{ SSH_MSG_CHANNEL_SUCCESS,           "Channel Success" },
+	{ SSH_MSG_CHANNEL_FAILURE,           "Channel Failure" },
+	{ 0, NULL }
+};
+	
+	const value_string ssh2_kex_dh_msg_vals[] = {
+		{ SSH_MSG_KEXDH_INIT,                "Diffie-Hellman Key Exchange Init" },
+		{ SSH_MSG_KEXDH_REPLY,               "Diffie-Hellman Key Exchange Reply" },
+		{ 0, NULL }
+	};
+	
+	const value_string ssh2_kex_dh_gex_msg_vals[] = {
+		{ SSH_MSG_KEX_DH_GEX_REQUEST_OLD,    "Diffie-Hellman Group Exchange Request (Old)" },
+		{ SSH_MSG_KEX_DH_GEX_GROUP,          "Diffie-Hellman Group Exchange Group" },
+		{ SSH_MSG_KEX_DH_GEX_INIT,           "Diffie-Hellman Group Exchange Init" },
+		{ SSH_MSG_KEX_DH_GEX_REPLY,          "Diffie-Hellman Group Exchange Reply" },
+		{ SSH_MSG_KEX_DH_GEX_REQUEST,        "Diffie-Hellman Group Exchange Request" },
+		{ 0, NULL }
+	};
+	
+	const value_string ssh2_kex_ecdh_msg_vals[] = {
+		{ SSH_MSG_KEX_ECDH_INIT,             "Elliptic Curve Diffie-Hellman Key Exchange Init" },
+		{ SSH_MSG_KEX_ECDH_REPLY,            "Elliptic Curve Diffie-Hellman Key Exchange Reply" },
+		{ 0, NULL }
+	};
+	
+	const value_string ssh1_msg_vals[] = {
+		{SSH1_MSG_NONE,                      "No Message"},
+		{SSH1_MSG_DISCONNECT,                "Disconnect"},
+		{SSH1_SMSG_PUBLIC_KEY,               "Public Key"},
+		{SSH1_CMSG_SESSION_KEY,              "Session Key"},
+		{SSH1_CMSG_USER,                     "User"},
+		{0, NULL}
+	};
 
 // sshPlugin application level protocol analyzer plugin
 type sshPlugin struct {
@@ -26,6 +302,8 @@ type connection struct {
 }
 
 // Uni-directional tcp stream state for parsing messages.
+// TODO: I think this stream is used for temporary storage while they construct
+// one back and forth conversation
 type stream struct {
 	parser parser
 }
@@ -132,6 +410,10 @@ func (sp *sshPlugin) Parse(
 	//debug.PrintStack()
 	defer logp.Recover("Parse sshPlugin exception")
 
+	spew.Dump(sp, pkt, tcptuple, dir, private)
+	fmt.Println("Press the Enter Key to terminate the console screen!")
+	fmt.Scanln() // wait for Enter Key
+
 	/*
 		The arguments to this function look like the below.
 		(*protos.Packet)(0xc0011e6cc0)({
@@ -223,7 +505,7 @@ func (sp *sshPlugin) Parse(
 	// After running: (*ssh.stream)(<nil>)
 
 	if st == nil {
-		st = &stream{}
+		st = &stream{} // Create a new stream if one doesn't already exist
 		st.parser.init(&sp.parserConfig, func(msg *message) error {
 			return conn.trans.onMessage(tcptuple.IPPort(), dir, msg)
 		})

@@ -803,6 +803,11 @@ func (http *httpPlugin) newTransaction(requ, resp *message) beat.Event {
 		        /root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:222 +0x129
 	*/
 
+	/*
+		This is what fields looks like
+		(common.MapStr) (len=11) {"bytes_in":296,"bytes_out":384,"dst":{"IP":"184.24.98.240","Port":80,"Name":"","Cmdline":"","Proc":""},"http":{"request":{"headers":{"content-length":0},"params":""},"response":{"code":200,"headers":{"content-length":8,"content-type":"text/plain"},"phrase":"OK"}},"method":"GET","path":"/success.txt","query":"GET /success.txt","responsetime":24,"src":{"IP":"192.168.1.235","Port":40572,"Name":"","Cmdline":"","Proc":""},"status":"OK","type":"http"}
+	*/
+
 	return beat.Event{
 		Timestamp: timestamp,
 		Fields:    fields,
@@ -824,6 +829,7 @@ func (http *httpPlugin) publishTransaction(event beat.Event) {
 	if http.results == nil {
 		return
 	}
+	// This up being the beat event
 	http.results(event)
 }
 
