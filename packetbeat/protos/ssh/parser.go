@@ -21,7 +21,10 @@ package ssh
 
 import (
 	"errors"
+	"os"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/elastic/beats/libbeat/common/streambuf"
 	"github.com/elastic/beats/packetbeat/protos/applayer"
@@ -32,7 +35,39 @@ type parser struct {
 	config  *parserConfig
 	message *message
 
+	global_data ssh_flow_data
+	peer_data   ssh_peer_data
+
 	onMessage func(m *message) error
+
+	// SSH specific variables
+	counter uint
+
+	frame_version_start uint32
+	frame_version_end   uint32
+
+	frame_key_start      int32
+	frame_key_end        int32
+	frame_key_end_offset int
+
+	kex_proposal *uint8
+
+	/* For all subsequent proposals,
+	[0] is client-to-server and [1] is server-to-client. */
+	CLIENT_TO_SERVER_PROPOSAL int `0`
+	SERVER_TO_CLIENT_PROPOSAL int `1`
+
+	mac_proposals [2]*uint8
+	mac           *uint8
+	mac_length    int
+
+	enc_proposals [2]*uint8
+	enc           *uint8
+
+	comp_proposals [2]*uint8
+	comp           *uint8
+
+	length_is_plaintext int
 }
 
 type parserConfig struct {
@@ -67,48 +102,6 @@ const (
 	SSH_VERSION_1       = 1
 	SSH_VERSION_2       = 2
 )
-
-type ssh_peer_data struct {
-	counter uint
-
-	frame_version_start uint32
-	frame_version_end   uint32
-
-	frame_key_start      int32
-	frame_key_end        int32
-	frame_key_end_offset int
-
-	kex_proposal *uint8
-
-	/* For all subsequent proposals,
-	[0] is client-to-server and [1] is server-to-client. */
-	CLIENT_TO_SERVER_PROPOSAL int `0`
-	SERVER_TO_CLIENT_PROPOSAL int `1`
-
-	mac_proposals [2]*uint8
-	mac           *uint8
-	mac_length    int
-
-	enc_proposals [2]*uint8
-	enc           *uint8
-
-	comp_proposals [2]*uint8
-	comp           *uint8
-
-	length_is_plaintext int
-}
-
-type ssh_flow_data struct {
-	version uint
-
-	kex *uint8
-	//TODO int   (*kex_specific_dissector)(uint8 msg_code, tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree);
-
-	/* [0] is client's, [1] is server's */
-	CLIENT_PEER_DATA int `0`
-	SERVER_PEER_DATA int `1`
-	peer_data        [2]ssh_peer_data
-}
 
 var proto_ssh = -1
 
@@ -338,10 +331,12 @@ func (p *parser) init(
 	cfg *parserConfig,
 	onMessage func(*message) error,
 ) {
+
 	*p = parser{
-		buf:       streambuf.Buffer{},
-		config:    cfg,
-		onMessage: onMessage,
+		buf:        streambuf.Buffer{},
+		config:     cfg,
+		onMessage:  onMessage,
+		mac_length: -1,
 	}
 }
 
@@ -359,10 +354,54 @@ func (p *parser) append(data []byte) error {
 
 func (p *parser) feed(ts time.Time, data []byte) error {
 
+	// EXTRA static int dissect_ssh(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+
+	// EXTRA proto_tree  *ssh_tree
+	// EXTRA proto_item  *ti
+	// EXTRA conversation_t *conversation
+
+	var int last_offset
+	offset := 0
+
+	// Determine if the indbound data is a response or not
+	// EXTRA NEED TO DETERMINE IF THIS IS A RESPONSE OR NOT
+	// var bool is_response = (pinfo->destport != pinfo->match_uint),
+	// EXTRA
+	// peer_data = &global_data->peer_data[is_response];
+	// EXTRA NOT SURE IF WE'LL NEED THIS
+	// need_desegmentation;
+
+	// EXTRA NOT SURE IF I NEED TO DO ANYTHING WITH THESE
+	//ti = proto_tree_add_item(tree, proto_ssh, tvb, offset, -1, ENC_NA);
+	//ssh_tree = proto_item_add_subtree(ti, ett_ssh);
+
+	/*
+		EXTRA I CAN PROBABLY GET RID OF THIS BLOCK. I DON'T HAVE A COLUMN TO SET
+		IT JUST NEEDS TO BE SET IN THE FIELDS
+		version = global_data->version;
+
+		switch(version) {
+		case SSH_VERSION_UNKNOWN:
+			col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSH");
+			break;
+		case SSH_VERSION_1:
+			col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSHv1");
+			break;
+		case SSH_VERSION_2:
+			col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSHv2");
+			break;
+
+		}
+
+		col_clear(pinfo->cinfo, COL_INFO);
+	*/
+
 	if err := p.append(data); err != nil {
 		return err
 	}
 
+	spew.Dump(p)
+	os.Exit(3)
 	for p.buf.Total() > 0 {
 		if p.message == nil {
 			// allocate new message object to be used by parser with current timestamp
@@ -387,101 +426,64 @@ func (p *parser) feed(ts time.Time, data []byte) error {
 		}
 	}
 
-	// TODO static int dissect_ssh(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
+	/*
+		while(tvb_reported_length_remaining(tvb, offset)> 0) {
+			gboolean after_version_start = (peer_data->frame_version_start == 0 ||
+			pinfo->num >= peer_data->frame_version_start);
+			gboolean before_version_end = (peer_data->frame_version_end == 0 ||
+			pinfo->num <= peer_data->frame_version_end);
 
-	// TODO proto_tree  *ssh_tree
-	// TODO proto_item  *ti
-	// TODO conversation_t *conversation
+			need_desegmentation = FALSE;
+			last_offset = offset;
 
-	var int last_offset
-	offset := 0
+			peer_data->counter++;
 
-	// Determine if the indbound data is a response or not
-	// TODO NEED TO DETERMINE IF THIS IS A RESPONSE OR NOT
-	// TODO var bool is_response = (pinfo->destport != pinfo->match_uint),
-			// TODO need_desegmentation;
-	var uint version;
+			if (after_version_start && before_version_end &&
+			(tvb_strncaseeql(tvb, offset, "SSH-", 4) == 0)) {
+			if (peer_data->frame_version_start == 0)
+				peer_data->frame_version_start = pinfo->num;
 
-
-
-	ti = proto_tree_add_item(tree, proto_ssh, tvb, offset, -1, ENC_NA);
-	ssh_tree = proto_item_add_subtree(ti, ett_ssh);
-
-	version = global_data->version;
-
-	switch(version) {
-	case SSH_VERSION_UNKNOWN:
-		col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSH");
-		break;
-	case SSH_VERSION_1:
-		col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSHv1");
-		break;
-	case SSH_VERSION_2:
-		col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSHv2");
-		break;
-
-	}
-
-	col_clear(pinfo->cinfo, COL_INFO);
-
-	while(tvb_reported_length_remaining(tvb, offset)> 0) {
-		gboolean after_version_start = (peer_data->frame_version_start == 0 ||
-		pinfo->num >= peer_data->frame_version_start);
-		gboolean before_version_end = (peer_data->frame_version_end == 0 ||
-		pinfo->num <= peer_data->frame_version_end);
-
-		need_desegmentation = FALSE;
-		last_offset = offset;
-
-		peer_data->counter++;
-
-		if (after_version_start && before_version_end &&
-		(tvb_strncaseeql(tvb, offset, "SSH-", 4) == 0)) {
-		if (peer_data->frame_version_start == 0)
-			peer_data->frame_version_start = pinfo->num;
-
-		offset = ssh_dissect_protocol(tvb, pinfo,
-			global_data,
-			offset, ssh_tree, is_response,
-			&version, &need_desegmentation);
-
-		if (!need_desegmentation) {
-			peer_data->frame_version_end = pinfo->num;
-			global_data->version = version;
-		}
-		} else {
-		switch(version) {
-
-		case SSH_VERSION_UNKNOWN:
-			offset = ssh_dissect_encrypted_packet(tvb, pinfo,
-				&global_data->peer_data[is_response], offset, ssh_tree);
-			break;
-
-		case SSH_VERSION_1:
-			offset = ssh_dissect_ssh1(tvb, pinfo, global_data,
+			offset = ssh_dissect_protocol(tvb, pinfo,
+				global_data,
 				offset, ssh_tree, is_response,
-				&need_desegmentation);
-			break;
+				&version, &need_desegmentation);
 
-		case SSH_VERSION_2:
-			offset = ssh_dissect_ssh2(tvb, pinfo, global_data,
-				offset, ssh_tree, is_response,
-				&need_desegmentation);
-			break;
-		}
+			if (!need_desegmentation) {
+				peer_data->frame_version_end = pinfo->num;
+				global_data->version = version;
+			}
+			} else {
+			switch(version) {
+
+			case SSH_VERSION_UNKNOWN:
+				offset = ssh_dissect_encrypted_packet(tvb, pinfo,
+					&global_data->peer_data[is_response], offset, ssh_tree);
+				break;
+
+			case SSH_VERSION_1:
+				offset = ssh_dissect_ssh1(tvb, pinfo, global_data,
+					offset, ssh_tree, is_response,
+					&need_desegmentation);
+				break;
+
+			case SSH_VERSION_2:
+				offset = ssh_dissect_ssh2(tvb, pinfo, global_data,
+					offset, ssh_tree, is_response,
+					&need_desegmentation);
+				break;
+			}
+			}
+
+			if (need_desegmentation)
+			return tvb_captured_length(tvb);
+			if (offset <= last_offset) {
+			// XXX - add an expert info in the function that decrements offset
+		break;
+			}
 		}
 
-		if (need_desegmentation)
-		return tvb_captured_length(tvb);
-		if (offset <= last_offset) {
-		/* XXX - add an expert info in the function
-		that decrements offset */
-	break;
-		}
-	}
-
-	col_prepend_fstr(pinfo->cinfo, COL_INFO, "%s: ", is_response ? "Server" : "Client");
-	return tvb_captured_length(tvb);
+		col_prepend_fstr(pinfo->cinfo, COL_INFO, "%s: ", is_response ? "Server" : "Client");
+		return tvb_captured_length(tvb);*/
 
 	return nil
 }

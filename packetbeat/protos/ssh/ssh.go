@@ -19,7 +19,21 @@ type sshPlugin struct {
 }
 
 // Application Layer tcp stream data to be stored on tcp connection context.
+// There are two streams in any conversation. These represent the two different
+// directions traffic could flow.
 type connection struct {
+	CLIENT_PEER_DATA int `0`
+	SERVER_PEER_DATA int `1`
+
+	// TODO update variable - SSH version
+	version uint
+
+	kex *uint8
+
+	// TODO THIS IS A POINTER TO A FUNCTION THAT I WILL NEED TO PORT
+	//int   (*kex_specific_dissector)(uint8 msg_code, tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree);
+
+	/* [0] is the client's SSH stream, [1] is server's */
 	streams [2]*stream
 	trans   transactions
 }
@@ -38,48 +52,6 @@ var (
 	// (garbage collection) when debug log is disabled.
 	isDebug = false
 )
-
-type ssh_peer_data struct {
-	counter uint
-
-	frame_version_start uint32
-	frame_version_end   uint32
-
-	frame_key_start      int32
-	frame_key_end        int32
-	frame_key_end_offset int
-
-	kex_proposal *uint8
-
-	/* For all subsequent proposals,
-	[0] is client-to-server and [1] is server-to-client. */
-	CLIENT_TO_SERVER_PROPOSAL int `0`
-	SERVER_TO_CLIENT_PROPOSAL int `1`
-
-	mac_proposals [2]*uint8
-	mac           *uint8
-	mac_length    int
-
-	enc_proposals [2]*uint8
-	enc           *uint8
-
-	comp_proposals [2]*uint8
-	comp           *uint8
-
-	length_is_plaintext int
-}
-
-type ssh_flow_data struct {
-	version uint
-
-	kex *uint8
-	//TODO int   (*kex_specific_dissector)(uint8 msg_code, tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree);
-
-	/* [0] is client's, [1] is server's */
-	CLIENT_PEER_DATA int `0`
-	SERVER_PEER_DATA int `1`
-	peer_data        [2]ssh_peer_data
-}
 
 func init() {
 
@@ -263,6 +235,13 @@ func (sp *sshPlugin) Parse(
 	st := conn.streams[dir]
 	// After running: (*ssh.stream)(<nil>)
 
+	// This figures out if a conversation already exists for this. If not
+	// it starts a new conversation
+	// EXTRA I DON'T THINK THE BELOW IS NECESSARY. I THINK PACKETBEAT
+	// NATIVELY TAKES CARE OF THIS
+	// conversation = find_or_create_conversation(pinfo);
+	// global_data = (struct ssh_flow_data *)conversation_get_proto_data(conversation, proto_ssh);
+
 	if st == nil {
 		st = &stream{} // Create a new stream if one doesn't already exist
 		st.parser.init(&sp.parserConfig, func(msg *message) error {
@@ -290,26 +269,6 @@ func (sp *sshPlugin) Parse(
 			}
 		*/
 
-		global_data = new(ssh_flow_data)
-		peer_data = new(ssh_peer_data)
-	
-		// This figures out if a conversation already exists for this. If not
-		// it starts a new conversation
-		// TODO NEED TO FIGURE OUT WHERE THIS SHOULD GO
-		// TODO conversation = find_or_create_conversation(pinfo);
-	
-		global_data = (struct ssh_flow_data *)conversation_get_proto_data(conversation, proto_ssh);
-		if (!global_data) {
-			global_data = (struct ssh_flow_data *)wmem_alloc0(wmem_file_scope(), sizeof(struct ssh_flow_data));
-			global_data->version=SSH_VERSION_UNKNOWN;
-			global_data->kex_specific_dissector=ssh_dissect_kex_dh;
-			global_data->peer_data[CLIENT_PEER_DATA].mac_length=-1;
-			global_data->peer_data[SERVER_PEER_DATA].mac_length=-1;
-	
-			conversation_add_proto_data(conversation, proto_ssh, global_data);
-		}
-	
-		peer_data = &global_data->peer_data[is_response];
 	}
 
 	/*
@@ -372,6 +331,9 @@ func (sp *sshPlugin) ensureConnection(private protos.ProtocolData) *connection {
 	if conn == nil {
 		conn = &connection{}
 		conn.trans.init(&sp.transConfig, sp.pub.onTransaction)
+		conn.version = SSH_VERSION_UNKNOWN
+		// TODO THIS IS A POINTER TO A FUNCTION THAT I WILL NEED TO PORT
+		//global_data->kex_specific_dissector=ssh_dissect_kex_dh;
 	}
 	return conn
 }
