@@ -551,7 +551,7 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 
 	//lastOffset := 0
 	offset := 0
-	//needDesegmentation := false
+	needDesegmentation := false
 
 	nodeData := p.nodeData[dir]
 
@@ -566,19 +566,13 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 		if nodeData.frameVersionEnd == 0 {
 			nodeData.frameVersionEnd = p.num
 		}
-		fmt.Println("HERE")
-		os.Exit(3)
-		/*
 
-			offset = ssh_dissect_protocol(tvb, pinfo,
-				global_data,
-				offset, ssh_tree, is_response,
-				&version, &need_desegmentation);
+		offset = sshDissectProtocol(data, );
 
-			if (!need_desegmentation) {
-				peer_data->frameVersionEnd = pinfo->num;
-				global_data->version = version;
-			}*/
+		if (!needDesegmentation) {
+			nodeData.frameVersionEnd = p.num;
+			p.version = version;
+		}
 	} /*else {
 	switch(version) {
 
@@ -615,4 +609,73 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 	// Need to check the parser state. There's some parser object that's getting
 	// passed around. In HTTP it's line 41 of http.go and it's just a short.
 	return nil, errors.New("TODO: implement me")
+}
+
+func sshDissectProtocol(data []byte, p *parser, offset int, isResponse bool, version *uint, needDesegmentation bool) int {
+
+	var (
+		remainLength uint
+		linelen int
+		protolen int
+	)
+
+	/*
+     *  If the first packet do not contain the banner,
+     *  it is dump in the middle of a flow or not a ssh at all
+     */
+	 if !bytes.Equal([]byte("SSH-"), data[offset:4]) {
+		// TODO NEED TO COME BACK TO THIS
+		//offset = sshDissectEncryptedPacket(tvb, pinfo, &global_data->peer_data[is_response], offset, tree);
+        return offset;
+	}
+	
+    if (!isResponse) {
+		if (bytes.Equal([]byte("SSH-2."), data[offset:6])) {
+			*version = SSH_VERSION_2;
+		} else if (bytes.Equal([]byte("SSH-1.99-"), data[offset:9])) {
+			*version = SSH_VERSION_2;
+		} else if (bytes.Equal([]byte("SSH-1."), data[offset:6])) {
+            *version = SSH_VERSION_1;
+        }
+    }
+
+    /*
+     * We use "tvb_ensure_captured_length_remaining()" to make sure there
+     * actually *is* data remaining.
+     *
+     * This means we're guaranteed that "remainLength" is positive.
+     */
+    remainLength = tvb_ensure_captured_length_remaining(tvb, offset);
+    /*linelen = tvb_find_line_end(tvb, offset, -1, &next_offset, FALSE);
+     */
+    linelen = tvb_find_guint8(tvb, offset, -1, '\n');
+
+    if (ssh_desegment && pinfo->can_desegment) {
+        if (linelen == -1 || remainLength < (guint)linelen-offset) {
+            pinfo->desegment_offset = offset;
+            pinfo->desegment_len = linelen-remainLength;
+            *need_desegmentation = TRUE;
+            return offset;
+        }
+    }
+    if (linelen == -1) {
+        /* XXX - reassemble across segment boundaries? */
+        linelen = remainLength;
+        protolen = linelen;
+    } else {
+        linelen = linelen - offset + 1;
+
+        if (linelen > 1 && tvb_get_guint8(tvb, offset + linelen - 2) == '\r')
+            protolen = linelen - 2;
+        else
+            protolen = linelen - 1;
+    }
+
+    col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL, "Protocol (%s)",
+            tvb_format_text(tvb, offset, protolen));
+
+    proto_tree_add_item(tree, hf_ssh_protocol,
+                    tvb, offset, protolen, ENC_ASCII|ENC_NA);
+    offset+=linelen;
+    return offset;
 }
