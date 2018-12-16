@@ -26,17 +26,6 @@ type connection struct {
 	// [0] is the client's SSH stream, [1] is server's
 	streams [2]*stream
 	trans   transactions
-
-	CLIENT_PEER_DATA int `0`
-	SERVER_PEER_DATA int `1`
-
-	// TODO update variable - SSH version
-	version uint
-
-	kex *uint8
-
-	// TODO THIS IS A POINTER TO A FUNCTION THAT I WILL NEED TO PORT
-	//int   (*kex_specific_dissector)(uint8 msg_code, tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree);
 }
 
 // Uni-directional tcp stream state for parsing messages.
@@ -295,7 +284,7 @@ func (sp *sshPlugin) Parse(
 	   })
 	*/
 
-	if err := st.parser.feed(pkt.Ts, pkt.Payload); err != nil { // TODO this is where the parsing is happening
+	if err := st.parser.feed(pkt.Ts, pkt.Payload, dir); err != nil { // TODO this is where the parsing is happening
 		debugf("%v, dropping TCP stream for error in direction %v.", err, dir)
 		sp.onDropConnection(conn)
 		return nil
@@ -334,9 +323,6 @@ func (sp *sshPlugin) ensureConnection(private protos.ProtocolData) *connection {
 	if conn == nil {
 		conn = &connection{}
 		conn.trans.init(&sp.transConfig, sp.pub.onTransaction)
-		conn.version = SSH_VERSION_UNKNOWN
-		// TODO THIS IS A POINTER TO A FUNCTION THAT I WILL NEED TO PORT
-		//global_data->kex_specific_dissector=ssh_dissect_kex_dh;
 	}
 	return conn
 }

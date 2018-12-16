@@ -20,6 +20,7 @@
 package ssh
 
 import (
+	"bytes"
 	"errors"
 	"time"
 
@@ -34,11 +35,45 @@ type parser struct {
 
 	onMessage func(m *message) error
 
+	// TODO update variable - SSH version
+	version *uint
+
+	kex *uint8
+
+	// TODO THIS IS A POINTER TO A FUNCTION THAT I WILL NEED TO PORT
+	//int   (*kex_specific_dissector)(uint8 msg_code, tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree);
+
+	num uint32 `0`
+
+	nodeData [2]peerData
+}
+
+type parserConfig struct {
+	maxBytes int
+}
+
+type message struct {
+	applayer.Message
+
+	// indicator for parsed message being complete or requires more messages
+	// (if false) to be merged to generate full message.
+	isComplete bool
+
+	// list element use by 'transactions' for correlation
+	next *message
+}
+
+// Error code if stream exceeds max allowed size on append.
+var (
+	ErrStreamTooLarge = errors.New("Stream data too large")
+)
+
+type peerData struct {
 	// SSH specific variables
 	counter uint `0`
 
-	frame_version_start uint32 `0`
-	frame_version_end   uint32 `0`
+	frameVersionStart uint32 `0`
+	frameVersionEnd   uint32 `0`
 
 	frame_key_start      int32 `0`
 	frame_key_end        int32 `0`
@@ -64,24 +99,9 @@ type parser struct {
 	length_is_plaintext int
 }
 
-type parserConfig struct {
-	maxBytes int
-}
-
-type message struct {
-	applayer.Message
-
-	// indicator for parsed message being complete or requires more messages
-	// (if false) to be merged to generate full message.
-	isComplete bool
-
-	// list element use by 'transactions' for correlation
-	next *message
-}
-
-// Error code if stream exceeds max allowed size on append.
-var (
-	ErrStreamTooLarge = errors.New("Stream data too large")
+const (
+	CLIENT_PEER_DATA = 0
+	SERVER_PEER_DATA = 1
 )
 
 const (
@@ -326,12 +346,16 @@ func (p *parser) init(
 	onMessage func(*message) error,
 ) {
 
+	// TODO THIS IS A POINTER TO A FUNCTION THAT I WILL NEED TO PORT
+	//global_data->kex_specific_dissector=ssh_dissect_kex_dh;
 	*p = parser{
-		buf:        streambuf.Buffer{},
-		config:     cfg,
-		onMessage:  onMessage,
-		mac_length: -1,
+		buf:       streambuf.Buffer{},
+		config:    cfg,
+		onMessage: onMessage,
 	}
+
+	p.version = new(uint)
+	*p.version = SSH_VERSION_UNKNOWN
 }
 
 func (p *parser) append(data []byte) error {
@@ -346,7 +370,7 @@ func (p *parser) append(data []byte) error {
 	return nil
 }
 
-func (p *parser) feed(ts time.Time, data []byte) error {
+func (p *parser) feed(ts time.Time, data []byte, dir int) error {
 
 	/*
 		THIS IS A DUMP OF P
@@ -370,8 +394,8 @@ func (p *parser) feed(ts time.Time, data []byte) error {
 		 message: (*ssh.message)(<nil>),
 		 onMessage: (func(*ssh.message) error) 0xfa4450,
 		 counter: (uint) 0,
-		 frame_version_start: (uint32) 0,
-		 frame_version_end: (uint32) 0,
+		 frameVersionEnd: (uint32) 0,
+		 frameVersionEnd: (uint32) 0,
 		 frame_key_start: (int32) 0,
 		 frame_key_end: (int32) 0,
 		 frame_key_end_offset: (int) 0,
@@ -456,7 +480,7 @@ func (p *parser) feed(ts time.Time, data []byte) error {
 		}
 
 		// This is where we actually dissect a specific message
-		msg, err := p.parse()
+		msg, err := p.parse(data, isResponse)
 		if err != nil {
 			return err
 		}
@@ -489,7 +513,7 @@ func (p *parser) newMessage(ts time.Time) *message {
 
 // This function could be anything. In the other examples it's completely different with different
 // arguments each time
-func (p *parser) parse() (*message, error) {
+func (p *parser) parse(data []byte, dir int) (*message, error) {
 	/*
 		Message looks like this
 		(*ssh.message)(0xc0019b8a50)({
@@ -536,61 +560,61 @@ func (p *parser) parse() (*message, error) {
 				/root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:222 +0x129
 	*/
 
-	// TODO NEED TO FIGURE OUT WHAT THIS NUM IS DOING
-	after_version_start := ( p.frame_version_start == 0 ||
-	//pinfo->num >= p.frame_version_start);
+	streamData := p.nodeData[dir]
 
-	before_version_end := ( p.frame_version_end == 0 ||
-	pinfo->num <= p.frame_version_end);
+	// TODO NEED TO FIGURE OUT WHAT THIS NUM IS DOING
+	afterVersionStart := (streamData.frameVersionEnd == 0 || streamData.num >= streamData.frameVersionEnd)
+
+	beforeVersionStart := (p.frameVersionEnd == 0 || p.num <= p.frameVersionEnd)
 
 	p.counter++
-	
-	   	if (after_version_start && before_version_end &&
-	   	(tvb_strncaseeql(tvb, offset, "SSH-", 4) == 0)) {
-	   		if (peer_data->frame_version_start == 0)
-	   			peer_data->frame_version_start = pinfo->num;
 
-	   		offset = ssh_dissect_protocol(tvb, pinfo,
-	   			global_data,
-	   			offset, ssh_tree, is_response,
-	   			&version, &need_desegmentation);
+	if afterVersionStart && beforeVersionStart && (bytes.Equal([]bytes{"SSH-"}, 4) == 0) {
+		if p.frameVersionEnd == 0 {
+			p.frameVersionEnd = p.num
+		} /*
 
-	   		if (!need_desegmentation) {
-	   			peer_data->frame_version_end = pinfo->num;
-	   			global_data->version = version;
-	   		}
-	   	} else {
-	   	switch(version) {
+			offset = ssh_dissect_protocol(tvb, pinfo,
+				global_data,
+				offset, ssh_tree, is_response,
+				&version, &need_desegmentation);
 
-	   	case SSH_VERSION_UNKNOWN:
-	   		offset = ssh_dissect_encrypted_packet(tvb, pinfo,
-	   			&global_data->peer_data[is_response], offset, ssh_tree);
-	   		break;
+			if (!need_desegmentation) {
+				peer_data->frameVersionEnd = pinfo->num;
+				global_data->version = version;
+			}*/
+	} /*else {
+	switch(version) {
 
-	   	case SSH_VERSION_1:
-	   		offset = ssh_dissect_ssh1(tvb, pinfo, global_data,
-	   			offset, ssh_tree, is_response,
-	   			&need_desegmentation);
-	   		break;
+	case SSH_VERSION_UNKNOWN:
+		offset = ssh_dissect_encrypted_packet(tvb, pinfo,
+			&global_data->peer_data[is_response], offset, ssh_tree);
+		break;
 
-	   	case SSH_VERSION_2:
-	   		offset = ssh_dissect_ssh2(tvb, pinfo, global_data,
-	   			offset, ssh_tree, is_response,
-	   			&need_desegmentation);
-	   		break;
-	   	}
-	   	}
+	case SSH_VERSION_1:
+		offset = ssh_dissect_ssh1(tvb, pinfo, global_data,
+			offset, ssh_tree, is_response,
+			&need_desegmentation);
+		break;
 
-	   	if (need_desegmentation)
-	   	return tvb_captured_length(tvb);
-	   	if (offset <= last_offset) {
-	   	// XXX - add an expert info in the function that decrements offset
-	   break;
-	   	}
+	case SSH_VERSION_2:
+		offset = ssh_dissect_ssh2(tvb, pinfo, global_data,
+			offset, ssh_tree, is_response,
+			&need_desegmentation);
+		break;
+	}
+	}
+
+	if (need_desegmentation)
+	return tvb_captured_length(tvb);
+	if (offset <= last_offset) {
+	// XXX - add an expert info in the function that decrements offset
+	break;
+	}
 
 
-	   	col_prepend_fstr(pinfo->cinfo, COL_INFO, "%s: ", is_response ? "Server" : "Client");
-	   	return tvb_captured_length(tvb);
+	col_prepend_fstr(pinfo->cinfo, COL_INFO, "%s: ", is_response ? "Server" : "Client");
+	return tvb_captured_length(tvb);*/
 
 	// Need to check the parser state. There's some parser object that's getting
 	// passed around. In HTTP it's line 41 of http.go and it's just a short.
