@@ -56,6 +56,8 @@ type message struct {
 	// (if false) to be merged to generate full message.
 	isComplete bool
 
+	info string
+
 	// list element use by 'transactions' for correlation
 	next *message
 }
@@ -547,7 +549,8 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 	*/
 
 	//lastOffset := 0
-	offset := 0
+	var offset uint
+	message := p.message
 
 	// TODO I THINK I'LL BE ABLE TO GET RID OF THIS
 	//needDesegmentation := false
@@ -570,8 +573,10 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 
 		if dir == 0 {
 			isResponse = false
+			message.info += "Client: "
 		} else {
 			isResponse = true
+			message.info += "Server: "
 		}
 
 		offset = sshDissectProtocol(data, p, offset, isResponse, &nodeData.sshVersion)
@@ -581,38 +586,33 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 			nodeData.frameVersionEnd = p.num
 			p.version = version
 		}*/
-	} /*else {
-	switch(version) {
-
-	case SSH_VERSION_UNKNOWN:
-		offset = ssh_dissect_encrypted_packet(tvb, pinfo,
-			&global_data->peer_data[is_response], offset, ssh_tree);
-		break;
-
-	case SSH_VERSION_1:
-		offset = ssh_dissect_ssh1(tvb, pinfo, global_data,
-			offset, ssh_tree, is_response,
-			&need_desegmentation);
-		break;
-
-	case SSH_VERSION_2:
-		offset = ssh_dissect_ssh2(tvb, pinfo, global_data,
-			offset, ssh_tree, is_response,
-			&need_desegmentation);
-		break;
-	}
+	} else {
+		switch nodeData.sshVersion {
+		case SSH_VERSION_UNKNOWN:
+			offset = sshDissectEncryptedPacket( /*tvb, pinfo, &global_data->peer_data[is_response], offset, ssh_tree*/ )
+			break
+		case SSH_VERSION_1:
+			offset = sshDissectSsh1( /*tvb, pinfo, global_data, offset, ssh_tree, is_response, &need_desegmentation*/ )
+			break
+		case SSH_VERSION_2:
+			offset = sshDissectSsh2( /*tvb, pinfo, global_data, offset, ssh_tree, is_response, &need_desegmentation*/ )
+			break
+		}
 	}
 
-	if (need_desegmentation)
-	return tvb_captured_length(tvb);
-	if (offset <= last_offset) {
-	// XXX - add an expert info in the function that decrements offset
-	break;
-	}
+	/*
+		TODO I THINK I CAN GET RID OF THIS
+		if (need_desegmentation)
+			return tvb_captured_length(tvb);
+	*/
 
+	/*if offset <= last_offset {
+		// XXX - add an expert info in the function that decrements offset
+		break
+	}*/
 
-	col_prepend_fstr(pinfo->cinfo, COL_INFO, "%s: ", is_response ? "Server" : "Client");
-	return tvb_captured_length(tvb);*/
+	// TODO NEED TO MAKE SURE THIS IS COVERED APPROPRIATELY
+	//return tvb_captured_length(tvb);
 
 	// Need to check the parser state. There's some parser object that's getting
 	// passed around. In HTTP it's line 41 of http.go and it's just a short.
@@ -620,7 +620,7 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 }
 
 // TODO I THINK I CAN GET RID OF THE NEED DESEGMENTATION
-func sshDissectProtocol(data []byte, p *parser, offset int, isResponse bool, version *uint /*needDesegmentation bool*/) int {
+func sshDissectProtocol(data []byte, p *parser, offset uint, isResponse bool, version *uint /*needDesegmentation bool*/) uint {
 
 	var (
 		//remainLength int
@@ -690,4 +690,16 @@ func sshDissectProtocol(data []byte, p *parser, offset int, isResponse bool, ver
 	offset += linelen
 
 	return offset
+}
+
+func sshDissectEncryptedPacket() uint {
+	return 1
+}
+
+func sshDissectSsh1() uint {
+	return 1
+}
+
+func sshDissectSsh2() uint {
+	return 1
 }
