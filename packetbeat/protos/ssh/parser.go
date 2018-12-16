@@ -22,8 +22,6 @@ package ssh
 import (
 	"bytes"
 	"errors"
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/elastic/beats/libbeat/common/streambuf"
@@ -36,9 +34,6 @@ type parser struct {
 	message *message
 
 	onMessage func(m *message) error
-
-	// TODO update variable - SSH version
-	version *uint
 
 	kex *uint8
 
@@ -99,6 +94,8 @@ type peerData struct {
 	comp           *uint8
 
 	length_is_plaintext int
+
+	sshVersion uint
 }
 
 const (
@@ -356,8 +353,8 @@ func (p *parser) init(
 		onMessage: onMessage,
 	}
 
-	p.version = new(uint)
-	*p.version = SSH_VERSION_UNKNOWN
+	p.nodeData[CLIENT_PEER_DATA].sshVersion = SSH_VERSION_UNKNOWN
+	p.nodeData[SERVER_PEER_DATA].sshVersion = SSH_VERSION_UNKNOWN
 	p.nodeData[CLIENT_PEER_DATA] = peerData{mac_length: -1}
 	p.nodeData[SERVER_PEER_DATA] = peerData{mac_length: -1}
 
@@ -551,7 +548,9 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 
 	//lastOffset := 0
 	offset := 0
-	needDesegmentation := false
+
+	// TODO I THINK I'LL BE ABLE TO GET RID OF THIS
+	//needDesegmentation := false
 
 	nodeData := p.nodeData[dir]
 
@@ -567,12 +566,21 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 			nodeData.frameVersionEnd = p.num
 		}
 
-		offset = sshDissectProtocol(data, );
+		var isResponse bool
 
-		if (!needDesegmentation) {
-			nodeData.frameVersionEnd = p.num;
-			p.version = version;
+		if dir == 0 {
+			isResponse = false
+		} else {
+			isResponse = true
 		}
+
+		offset = sshDissectProtocol(data, p, offset, isResponse, &nodeData.sshVersion)
+
+		/* TODO NOT SURE I NEED THIS
+		if !needDesegmentation {
+			nodeData.frameVersionEnd = p.num
+			p.version = version
+		}*/
 	} /*else {
 	switch(version) {
 
@@ -611,71 +619,75 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 	return nil, errors.New("TODO: implement me")
 }
 
-func sshDissectProtocol(data []byte, p *parser, offset int, isResponse bool, version *uint, needDesegmentation bool) int {
+// TODO I THINK I CAN GET RID OF THE NEED DESEGMENTATION
+func sshDissectProtocol(data []byte, p *parser, offset int, isResponse bool, version *uint /*needDesegmentation bool*/) int {
 
 	var (
-		remainLength uint
+		//remainLength int
 		linelen int
-		protolen int
+		//protolen     int
 	)
 
 	/*
-     *  If the first packet do not contain the banner,
-     *  it is dump in the middle of a flow or not a ssh at all
-     */
-	 if !bytes.Equal([]byte("SSH-"), data[offset:4]) {
+	 *  If the first packet do not contain the banner,
+	 *  it is dump in the middle of a flow or not a ssh at all
+	 */
+	if !bytes.Equal([]byte("SSH-"), data[offset:4]) {
 		// TODO NEED TO COME BACK TO THIS
 		//offset = sshDissectEncryptedPacket(tvb, pinfo, &global_data->peer_data[is_response], offset, tree);
-        return offset;
+		return offset
 	}
-	
-    if (!isResponse) {
-		if (bytes.Equal([]byte("SSH-2."), data[offset:6])) {
-			*version = SSH_VERSION_2;
-		} else if (bytes.Equal([]byte("SSH-1.99-"), data[offset:9])) {
-			*version = SSH_VERSION_2;
-		} else if (bytes.Equal([]byte("SSH-1."), data[offset:6])) {
-            *version = SSH_VERSION_1;
-        }
-    }
 
-    /*
-     * We use "tvb_ensure_captured_length_remaining()" to make sure there
-     * actually *is* data remaining.
-     *
-     * This means we're guaranteed that "remainLength" is positive.
-     */
-    remainLength = tvb_ensure_captured_length_remaining(tvb, offset);
-    /*linelen = tvb_find_line_end(tvb, offset, -1, &next_offset, FALSE);
-     */
-    linelen = tvb_find_guint8(tvb, offset, -1, '\n');
+	if !isResponse {
+		if bytes.Equal([]byte("SSH-2."), data[offset:6]) {
+			*version = SSH_VERSION_2
+		} else if bytes.Equal([]byte("SSH-1.99-"), data[offset:9]) {
+			*version = SSH_VERSION_2
+		} else if bytes.Equal([]byte("SSH-1."), data[offset:6]) {
+			*version = SSH_VERSION_1
+		}
+	}
 
-    if (ssh_desegment && pinfo->can_desegment) {
-        if (linelen == -1 || remainLength < (guint)linelen-offset) {
-            pinfo->desegment_offset = offset;
-            pinfo->desegment_len = linelen-remainLength;
-            *need_desegmentation = TRUE;
-            return offset;
-        }
-    }
-    if (linelen == -1) {
-        /* XXX - reassemble across segment boundaries? */
-        linelen = remainLength;
-        protolen = linelen;
-    } else {
-        linelen = linelen - offset + 1;
+	/*
+			 * TODO NEED TO UPDATE THIS COMMENT
+		     * We use "tvb_ensure_captured_length_remaining()" to make sure there
+		     * actually *is* data remaining.
+		     *
+		     * This means we're guaranteed that "remainLength" is positive.
+	*/
 
-        if (linelen > 1 && tvb_get_guint8(tvb, offset + linelen - 2) == '\r')
-            protolen = linelen - 2;
-        else
-            protolen = linelen - 1;
-    }
+	// TODO IT LOOKS LIKE I CAN GET RID OF THIS IF I DON'T USE THE OTHER BLOCK
+	//remainLength = len(data) - offset
 
-    col_append_sep_fstr(pinfo->cinfo, COL_INFO, NULL, "Protocol (%s)",
-            tvb_format_text(tvb, offset, protolen));
+	linelen = bytes.Index(data, []byte(string('\n')))
 
-    proto_tree_add_item(tree, hf_ssh_protocol,
-                    tvb, offset, protolen, ENC_ASCII|ENC_NA);
-    offset+=linelen;
-    return offset;
+	// TODO NOT SURE I DID THIS RIGHT
+	// linelen = tvb_find_guint8(tvb, offset, -1, '\n');
+
+	/*
+			TODO NEED TO COME BACK TO THIS
+		    if (ssh_desegment && pinfo->can_desegment) {
+		        if (linelen == -1 || remainLength < (guint)linelen-offset) {
+		            pinfo->desegment_offset = offset;
+		            pinfo->desegment_len = linelen-remainLength;
+		            *need_desegmentation = TRUE;
+		            return offset;
+		        }
+		    }
+		    if (linelen == -1) {
+		        // XXX - reassemble across segment boundaries?
+		        linelen = remainLength;
+		        protolen = linelen;
+		    } else {
+		        linelen = linelen - offset + 1;
+
+		        if (linelen > 1 && tvb_get_guint8(tvb, offset + linelen - 2) == '\r')
+		            protolen = linelen - 2;
+		        else
+		            protolen = linelen - 1;
+			}*/
+
+	offset += linelen
+
+	return offset
 }
