@@ -22,6 +22,8 @@ package ssh
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/elastic/beats/libbeat/common/streambuf"
@@ -356,6 +358,9 @@ func (p *parser) init(
 
 	p.version = new(uint)
 	*p.version = SSH_VERSION_UNKNOWN
+	p.nodeData[CLIENT_PEER_DATA] = peerData{mac_length: -1}
+	p.nodeData[SERVER_PEER_DATA] = peerData{mac_length: -1}
+
 }
 
 func (p *parser) append(data []byte) error {
@@ -370,7 +375,7 @@ func (p *parser) append(data []byte) error {
 	return nil
 }
 
-func (p *parser) feed(ts time.Time, data []byte, dir int) error {
+func (p *parser) feed(ts time.Time, data []byte, dir uint8) error {
 
 	/*
 		THIS IS A DUMP OF P
@@ -394,7 +399,7 @@ func (p *parser) feed(ts time.Time, data []byte, dir int) error {
 		 message: (*ssh.message)(<nil>),
 		 onMessage: (func(*ssh.message) error) 0xfa4450,
 		 counter: (uint) 0,
-		 frameVersionEnd: (uint32) 0,
+		 frameVersionStart: (uint32) 0,
 		 frameVersionEnd: (uint32) 0,
 		 frame_key_start: (int32) 0,
 		 frame_key_end: (int32) 0,
@@ -429,43 +434,27 @@ func (p *parser) feed(ts time.Time, data []byte, dir int) error {
 	// EXTRA conversation_t *conversation
 
 	/*
-		var int last_offset
-		offset := 0*/
 
-	// Determine if the indbound data is a response or not
-	// EXTRA NEED TO DETERMINE IF THIS IS A RESPONSE OR NOT
-	// var bool is_response = (pinfo->destport != pinfo->match_uint),
-	// EXTRA I DON'T THINK I'LL NEED THIS
-	// need_desegmentation = false;
-	// last_offset = offset;
-	// EXTRA
-	// peer_data = &global_data->peer_data[is_response];
-	// EXTRA NOT SURE IF WE'LL NEED THIS
-	// need_desegmentation;
 
-	// EXTRA NOT SURE IF I NEED TO DO ANYTHING WITH THESE
-	//ti = proto_tree_add_item(tree, proto_ssh, tvb, offset, -1, ENC_NA);
-	//ssh_tree = proto_item_add_subtree(ti, ett_ssh);
+		/*
+			EXTRA I CAN PROBABLY GET RID OF THIS BLOCK. I DON'T HAVE A COLUMN TO SET
+			IT JUST NEEDS TO BE SET IN THE FIELDS
+			version = global_data->version;
 
-	/*
-		EXTRA I CAN PROBABLY GET RID OF THIS BLOCK. I DON'T HAVE A COLUMN TO SET
-		IT JUST NEEDS TO BE SET IN THE FIELDS
-		version = global_data->version;
+			switch(version) {
+			case SSH_VERSION_UNKNOWN:
+				col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSH");
+				break;
+			case SSH_VERSION_1:
+				col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSHv1");
+				break;
+			case SSH_VERSION_2:
+				col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSHv2");
+				break;
 
-		switch(version) {
-		case SSH_VERSION_UNKNOWN:
-			col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSH");
-			break;
-		case SSH_VERSION_1:
-			col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSHv1");
-			break;
-		case SSH_VERSION_2:
-			col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSHv2");
-			break;
+			}
 
-		}
-
-		col_clear(pinfo->cinfo, COL_INFO);
+			col_clear(pinfo->cinfo, COL_INFO);
 	*/
 
 	if err := p.append(data); err != nil {
@@ -480,7 +469,7 @@ func (p *parser) feed(ts time.Time, data []byte, dir int) error {
 		}
 
 		// This is where we actually dissect a specific message
-		msg, err := p.parse(data, isResponse)
+		msg, err := p.parse(data, dir)
 		if err != nil {
 			return err
 		}
@@ -513,7 +502,7 @@ func (p *parser) newMessage(ts time.Time) *message {
 
 // This function could be anything. In the other examples it's completely different with different
 // arguments each time
-func (p *parser) parse(data []byte, dir int) (*message, error) {
+func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 	/*
 		Message looks like this
 		(*ssh.message)(0xc0019b8a50)({
@@ -560,19 +549,26 @@ func (p *parser) parse(data []byte, dir int) (*message, error) {
 				/root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:222 +0x129
 	*/
 
-	streamData := p.nodeData[dir]
+	//lastOffset := 0
+	offset := 0
+	//needDesegmentation := false
+
+	nodeData := p.nodeData[dir]
 
 	// TODO NEED TO FIGURE OUT WHAT THIS NUM IS DOING
-	afterVersionStart := (streamData.frameVersionEnd == 0 || streamData.num >= streamData.frameVersionEnd)
+	afterVersionStart := (nodeData.frameVersionStart == 0 || p.num >= nodeData.frameVersionStart)
 
-	beforeVersionStart := (p.frameVersionEnd == 0 || p.num <= p.frameVersionEnd)
+	beforeVersionStart := (nodeData.frameVersionEnd == 0 || p.num <= nodeData.frameVersionEnd)
 
-	p.counter++
+	nodeData.counter++
 
-	if afterVersionStart && beforeVersionStart && (bytes.Equal([]bytes{"SSH-"}, 4) == 0) {
-		if p.frameVersionEnd == 0 {
-			p.frameVersionEnd = p.num
-		} /*
+	if afterVersionStart && beforeVersionStart && bytes.Equal([]byte("SSH-"), data[offset:4]) {
+		if nodeData.frameVersionEnd == 0 {
+			nodeData.frameVersionEnd = p.num
+		}
+		fmt.Println("HERE")
+		os.Exit(3)
+		/*
 
 			offset = ssh_dissect_protocol(tvb, pinfo,
 				global_data,
