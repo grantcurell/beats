@@ -22,6 +22,11 @@ type sshPlugin struct {
 // There are two streams in any conversation. These represent the two different
 // directions traffic could flow.
 type connection struct {
+
+	// [0] is the client's SSH stream, [1] is server's
+	streams [2]*stream
+	trans   transactions
+
 	CLIENT_PEER_DATA int `0`
 	SERVER_PEER_DATA int `1`
 
@@ -32,10 +37,6 @@ type connection struct {
 
 	// TODO THIS IS A POINTER TO A FUNCTION THAT I WILL NEED TO PORT
 	//int   (*kex_specific_dissector)(uint8 msg_code, tvbuff_t *tvb, packet_info *pinfo, int offset, proto_tree *tree);
-
-	/* [0] is the client's SSH stream, [1] is server's */
-	streams [2]*stream
-	trans   transactions
 }
 
 // Uni-directional tcp stream state for parsing messages.
@@ -116,11 +117,13 @@ func (sp *sshPlugin) setFromConfig(config *sshConfig) error {
 	return nil
 }
 
+/*
+TODO NEED TO FIGURE OUT WHY THIS IS BROKEN
 func (s *stream) PrepareForNewMessage() {
 	parser := &s.parser
 	s.Stream.Reset()
 	parser.reset()
-}
+}*/
 
 // ConnectionTimeout returns the per stream connection timeout.
 // Return <=0 to set default tcp module transaction timeout.

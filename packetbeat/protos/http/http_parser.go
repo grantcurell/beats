@@ -431,37 +431,179 @@ func parseCommaSeparatedList(s common.NetString) (list []string) {
 
 func (*parser) parseBody(s *stream, m *message) (ok, complete bool) {
 	/*
-			goroutine 129 [running]:
-		runtime/debug.Stack(0xc001603a28, 0xa, 0x20)
-		        /usr/local/go/src/runtime/debug/stack.go:24 +0xa7
-		runtime/debug.PrintStack()
-		        /usr/local/go/src/runtime/debug/stack.go:16 +0x22
-		github.com/elastic/beats/packetbeat/protos/http.(*parser).parseBody(0xc001603b70, 0xc00008c140, 0xc000486a00, 0x1010101)
-		        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http_parser.go:435 +0x34
-		github.com/elastic/beats/packetbeat/protos/http.(*parser).parse(0xc001603b70, 0xc00008c140, 0x0, 0xc000068a80)
-		        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http_parser.go:141 +0x1ab
-		github.com/elastic/beats/packetbeat/protos/http.(*httpPlugin).doParse(0xc0000c6dc0, 0xc0019c32c0, 0xc001f386c0, 0xc00003a858, 0x7f73e51ac101, 0xc0000c6dc0)
-		        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http.go:515 +0x190
-		github.com/elastic/beats/packetbeat/protos/http.(*httpPlugin).Parse(0xc0000c6dc0, 0xc001f386c0, 0xc00003a858, 0xc0000c6d01, 0x0, 0x0, 0x0, 0x0)
-		        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http.go:274 +0xab
-		github.com/elastic/beats/packetbeat/protos/tcp.(*TCPStream).addPacket(0xc001603cb0, 0xc001f386c0, 0xc00113b2a0)
-		        /root/go/src/github.com/elastic/beats/packetbeat/protos/tcp/tcp.go:145 +0x159
-		github.com/elastic/beats/packetbeat/protos/tcp.(*TCP).Process(0xc0015f8640, 0xc00162ca40, 0xc00113b2a0, 0xc001f386c0)
-		        /root/go/src/github.com/elastic/beats/packetbeat/protos/tcp/tcp.go:240 +0x327
-		github.com/elastic/beats/packetbeat/decoder.(*Decoder).onTCP(0xc00113ad00, 0xc001f386c0)
-		        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:334 +0xdd
-		github.com/elastic/beats/packetbeat/decoder.(*Decoder).process(0xc00113ad00, 0xc001f386c0, 0x2c, 0x1b7, 0x193efa0, 0xc00113ad00)
-		        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:275 +0x1dd
-		github.com/elastic/beats/packetbeat/decoder.(*Decoder).OnPacket(0xc00113ad00, 0xc000c56a44, 0x1b7, 0x1b7, 0xc0019c3290)
-		        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:181 +0x317
-		github.com/elastic/beats/packetbeat/sniffer.(*Sniffer).Run(0xc00167e0b0, 0x0, 0x0)
-		        /root/go/src/github.com/elastic/beats/packetbeat/sniffer/sniffer.go:210 +0x466
-		github.com/elastic/beats/packetbeat/beater.(*packetbeat).Run.func2(0xc0015f2270, 0xc001373cc0, 0xc0017aa720)
-		        /root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:225 +0x60
-		created by github.com/elastic/beats/packetbeat/beater.(*packetbeat).Run
-		        /root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:222 +0x129
+					goroutine 129 [running]:
+				runtime/debug.Stack(0xc001603a28, 0xa, 0x20)
+				        /usr/local/go/src/runtime/debug/stack.go:24 +0xa7
+				runtime/debug.PrintStack()
+				        /usr/local/go/src/runtime/debug/stack.go:16 +0x22
+				github.com/elastic/beats/packetbeat/protos/http.(*parser).parseBody(0xc001603b70, 0xc00008c140, 0xc000486a00, 0x1010101)
+				        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http_parser.go:435 +0x34
+				github.com/elastic/beats/packetbeat/protos/http.(*parser).parse(0xc001603b70, 0xc00008c140, 0x0, 0xc000068a80)
+				        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http_parser.go:141 +0x1ab
+				github.com/elastic/beats/packetbeat/protos/http.(*httpPlugin).doParse(0xc0000c6dc0, 0xc0019c32c0, 0xc001f386c0, 0xc00003a858, 0x7f73e51ac101, 0xc0000c6dc0)
+				        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http.go:515 +0x190
+				github.com/elastic/beats/packetbeat/protos/http.(*httpPlugin).Parse(0xc0000c6dc0, 0xc001f386c0, 0xc00003a858, 0xc0000c6d01, 0x0, 0x0, 0x0, 0x0)
+				        /root/go/src/github.com/elastic/beats/packetbeat/protos/http/http.go:274 +0xab
+				github.com/elastic/beats/packetbeat/protos/tcp.(*TCPStream).addPacket(0xc001603cb0, 0xc001f386c0, 0xc00113b2a0)
+				        /root/go/src/github.com/elastic/beats/packetbeat/protos/tcp/tcp.go:145 +0x159
+				github.com/elastic/beats/packetbeat/protos/tcp.(*TCP).Process(0xc0015f8640, 0xc00162ca40, 0xc00113b2a0, 0xc001f386c0)
+				        /root/go/src/github.com/elastic/beats/packetbeat/protos/tcp/tcp.go:240 +0x327
+				github.com/elastic/beats/packetbeat/decoder.(*Decoder).onTCP(0xc00113ad00, 0xc001f386c0)
+				        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:334 +0xdd
+				github.com/elastic/beats/packetbeat/decoder.(*Decoder).process(0xc00113ad00, 0xc001f386c0, 0x2c, 0x1b7, 0x193efa0, 0xc00113ad00)
+				        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:275 +0x1dd
+				github.com/elastic/beats/packetbeat/decoder.(*Decoder).OnPacket(0xc00113ad00, 0xc000c56a44, 0x1b7, 0x1b7, 0xc0019c3290)
+				        /root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:181 +0x317
+				github.com/elastic/beats/packetbeat/sniffer.(*Sniffer).Run(0xc00167e0b0, 0x0, 0x0)
+				        /root/go/src/github.com/elastic/beats/packetbeat/sniffer/sniffer.go:210 +0x466
+				github.com/elastic/beats/packetbeat/beater.(*packetbeat).Run.func2(0xc0015f2270, 0xc001373cc0, 0xc0017aa720)
+				        /root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:225 +0x60
+				created by github.com/elastic/beats/packetbeat/beater.(*packetbeat).Run
+						/root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:222 +0x129
+
+				VARIABLE INFORMATION
+
+		(*http.stream)(0xc001ac3600)({
+		 tcptuple: (*common.TCPTuple)(0xc001ef8dd8)(TcpTuple src[192.168.1.235:50180] dst[184.24.98.216:80] stream_id[72]),
+		 data: ([]uint8) (len=8 cap=8) {
+		  00000000  73 75 63 63 65 73 73 0a                           |success.|
+		 },
+		 parseOffset: (int) 0,
+		 parseState: (http.parserState) 2,
+		 bodyReceived: (int) 0,
+		 message: (*http.message)(0xc001a3fc00)({
+		  ts: (time.Time) 2018-12-15 23:01:43.702922 -0600 CST,
+		  hasContentLength: (bool) true,
+		  headerOffset: (int) 17,
+		  version: (http.version) {
+		   major: (uint8) 1,
+		   minor: (uint8) 1
+		  },
+		  connection: (common.NetString) (len=10 cap=22) {
+		   00000000  6b 65 65 70 2d 61 6c 69  76 65                    |keep-alive|
+		  },
+		  chunkedLength: (int) 0,
+		  isRequest: (bool) false,
+		  tcpTuple: (common.TCPTuple) TcpTuple src[<nil>:0] dst[<nil>:0] stream_id[0],
+		  cmdlineTuple: (*common.CmdlineTuple)(<nil>),
+		  direction: (uint8) 0,
+		  requestURI: (common.NetString) <nil>,
+		  method: (common.NetString) <nil>,
+		  statusCode: (uint16) 200,
+		  statusPhrase: (common.NetString) (len=2 cap=371) {
+		   00000000  4f 4b                                             |OK|
+		  },
+		  realIP: (common.NetString) <nil>,
+		  contentLength: (int) 8,
+		  contentType: (common.NetString) (len=10 cap=353) {
+		   00000000  74 65 78 74 2f 70 6c 61  69 6e                    |text/plain|
+		  },
+		  encodings: ([]string) <nil>,
+		  isChunked: (bool) false,
+		  headers: (map[string]common.NetString) {
+		  },
+		  size: (uint64) 376,
+		  rawHeaders: ([]uint8) (len=376 cap=384) {
+		   00000000  48 54 54 50 2f 31 2e 31  20 32 30 30 20 4f 4b 0d  |HTTP/1.1 200 OK.|
+		   00000010  0a 43 6f 6e 74 65 6e 74  2d 54 79 70 65 3a 20 74  |.Content-Type: t|
+		   00000020  65 78 74 2f 70 6c 61 69  6e 0d 0a 43 6f 6e 74 65  |ext/plain..Conte|
+		   00000030  6e 74 2d 4c 65 6e 67 74  68 3a 20 38 0d 0a 4c 61  |nt-Length: 8..La|
+		   00000040  73 74 2d 4d 6f 64 69 66  69 65 64 3a 20 4d 6f 6e  |st-Modified: Mon|
+		   00000050  2c 20 31 35 20 4d 61 79  20 32 30 31 37 20 31 38  |, 15 May 2017 18|
+		   00000060  3a 30 34 3a 34 30 20 47  4d 54 0d 0a 45 54 61 67  |:04:40 GMT..ETag|
+		   00000070  3a 20 22 61 65 37 38 30  35 38 35 66 34 39 62 39  |: "ae780585f49b9|
+		   00000080  34 63 65 31 34 34 34 65  62 37 64 32 38 39 30 36  |4ce1444eb7d28906|
+		   00000090  31 32 33 22 0d 0a 41 63  63 65 70 74 2d 52 61 6e  |123"..Accept-Ran|
+		   000000a0  67 65 73 3a 20 62 79 74  65 73 0d 0a 53 65 72 76  |ges: bytes..Serv|
+		   000000b0  65 72 3a 20 41 6d 61 7a  6f 6e 53 33 0d 0a 58 2d  |er: AmazonS3..X-|
+		   000000c0  41 6d 7a 2d 43 66 2d 49  64 3a 20 49 61 57 35 68  |Amz-Cf-Id: IaW5h|
+		   000000d0  6f 35 45 47 73 65 58 63  67 5a 43 30 70 4f 55 2d  |o5EGseXcgZC0pOU-|
+		   000000e0  6c 5a 53 50 67 4f 71 52  41 31 34 38 76 6c 50 31  |lZSPgOqRA148vlP1|
+		   000000f0  4e 54 5f 4c 48 59 66 46  48 52 37 5a 50 5f 46 52  |NT_LHYfFHR7ZP_FR|
+		   00000100  77 3d 3d 0d 0a 43 61 63  68 65 2d 43 6f 6e 74 72  |w==..Cache-Contr|
+		   00000110  6f 6c 3a 20 6e 6f 2d 63  61 63 68 65 2c 20 6e 6f  |ol: no-cache, no|
+		   00000120  2d 73 74 6f 72 65 2c 20  6d 75 73 74 2d 72 65 76  |-store, must-rev|
+		   00000130  61 6c 69 64 61 74 65 0d  0a 44 61 74 65 3a 20 53  |alidate..Date: S|
+		   00000140  75 6e 2c 20 31 36 20 44  65 63 20 32 30 31 38 20  |un, 16 Dec 2018 |
+		   00000150  30 35 3a 30 31 3a 34 33  20 47 4d 54 0d 0a 43 6f  |05:01:43 GMT..Co|
+		   00000160  6e 6e 65 63 74 69 6f 6e  3a 20 6b 65 65 70 2d 61  |nnection: keep-a|
+		   00000170  6c 69 76 65 0d 0a 0d 0a                           |live....|
+		  },
+		  sendBody: (bool) false,
+		  saveBody: (bool) false,
+		  body: ([]uint8) <nil>,
+		  notes: ([]string) <nil>,
+		  next: (*http.message)(<nil>)
+		 })
+		})
+		(*http.message)(0xc001a3fc00)({
+		 ts: (time.Time) 2018-12-15 23:01:43.702922 -0600 CST,
+		 hasContentLength: (bool) true,
+		 headerOffset: (int) 17,
+		 version: (http.version) {
+		  major: (uint8) 1,
+		  minor: (uint8) 1
+		 },
+		 connection: (common.NetString) (len=10 cap=22) {
+		  00000000  6b 65 65 70 2d 61 6c 69  76 65                    |keep-alive|
+		 },
+		 chunkedLength: (int) 0,
+		 isRequest: (bool) false,
+		 tcpTuple: (common.TCPTuple) TcpTuple src[<nil>:0] dst[<nil>:0] stream_id[0],
+		 cmdlineTuple: (*common.CmdlineTuple)(<nil>),
+		 direction: (uint8) 0,
+		 requestURI: (common.NetString) <nil>,
+		 method: (common.NetString) <nil>,
+		 statusCode: (uint16) 200,
+		 statusPhrase: (common.NetString) (len=2 cap=371) {
+		  00000000  4f 4b                                             |OK|
+		 },
+		 realIP: (common.NetString) <nil>,
+		 contentLength: (int) 8,
+		 contentType: (common.NetString) (len=10 cap=353) {
+		  00000000  74 65 78 74 2f 70 6c 61  69 6e                    |text/plain|
+		 },
+		 encodings: ([]string) <nil>,
+		 isChunked: (bool) false,
+		 headers: (map[string]common.NetString) {
+		 },
+		 size: (uint64) 376,
+		 rawHeaders: ([]uint8) (len=376 cap=384) {
+		  00000000  48 54 54 50 2f 31 2e 31  20 32 30 30 20 4f 4b 0d  |HTTP/1.1 200 OK.|
+		  00000010  0a 43 6f 6e 74 65 6e 74  2d 54 79 70 65 3a 20 74  |.Content-Type: t|
+		  00000020  65 78 74 2f 70 6c 61 69  6e 0d 0a 43 6f 6e 74 65  |ext/plain..Conte|
+		  00000030  6e 74 2d 4c 65 6e 67 74  68 3a 20 38 0d 0a 4c 61  |nt-Length: 8..La|
+		  00000040  73 74 2d 4d 6f 64 69 66  69 65 64 3a 20 4d 6f 6e  |st-Modified: Mon|
+		  00000050  2c 20 31 35 20 4d 61 79  20 32 30 31 37 20 31 38  |, 15 May 2017 18|
+		  00000060  3a 30 34 3a 34 30 20 47  4d 54 0d 0a 45 54 61 67  |:04:40 GMT..ETag|
+		  00000070  3a 20 22 61 65 37 38 30  35 38 35 66 34 39 62 39  |: "ae780585f49b9|
+		  00000080  34 63 65 31 34 34 34 65  62 37 64 32 38 39 30 36  |4ce1444eb7d28906|
+		  00000090  31 32 33 22 0d 0a 41 63  63 65 70 74 2d 52 61 6e  |123"..Accept-Ran|
+		  000000a0  67 65 73 3a 20 62 79 74  65 73 0d 0a 53 65 72 76  |ges: bytes..Serv|
+		  000000b0  65 72 3a 20 41 6d 61 7a  6f 6e 53 33 0d 0a 58 2d  |er: AmazonS3..X-|
+		  000000c0  41 6d 7a 2d 43 66 2d 49  64 3a 20 49 61 57 35 68  |Amz-Cf-Id: IaW5h|
+		  000000d0  6f 35 45 47 73 65 58 63  67 5a 43 30 70 4f 55 2d  |o5EGseXcgZC0pOU-|
+		  000000e0  6c 5a 53 50 67 4f 71 52  41 31 34 38 76 6c 50 31  |lZSPgOqRA148vlP1|
+		  000000f0  4e 54 5f 4c 48 59 66 46  48 52 37 5a 50 5f 46 52  |NT_LHYfFHR7ZP_FR|
+		  00000100  77 3d 3d 0d 0a 43 61 63  68 65 2d 43 6f 6e 74 72  |w==..Cache-Contr|
+		  00000110  6f 6c 3a 20 6e 6f 2d 63  61 63 68 65 2c 20 6e 6f  |ol: no-cache, no|
+		  00000120  2d 73 74 6f 72 65 2c 20  6d 75 73 74 2d 72 65 76  |-store, must-rev|
+		  00000130  61 6c 69 64 61 74 65 0d  0a 44 61 74 65 3a 20 53  |alidate..Date: S|
+		  00000140  75 6e 2c 20 31 36 20 44  65 63 20 32 30 31 38 20  |un, 16 Dec 2018 |
+		  00000150  30 35 3a 30 31 3a 34 33  20 47 4d 54 0d 0a 43 6f  |05:01:43 GMT..Co|
+		  00000160  6e 6e 65 63 74 69 6f 6e  3a 20 6b 65 65 70 2d 61  |nnection: keep-a|
+		  00000170  6c 69 76 65 0d 0a 0d 0a                           |live....|
+		 },
+		 sendBody: (bool) false,
+		 saveBody: (bool) false,
+		 body: ([]uint8) <nil>,
+		 notes: ([]string) <nil>,
+		 next: (*http.message)(<nil>)
+		})
+
 
 	*/
+
 	nbytes := len(s.data)
 	if !m.hasContentLength && (bytes.Equal(m.connection, constClose) ||
 		(isVersion(m.version, 1, 0) && !bytes.Equal(m.connection, constKeepAlive))) {
