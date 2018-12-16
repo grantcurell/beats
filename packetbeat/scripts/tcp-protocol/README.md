@@ -294,6 +294,7 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 - Workflow is Sniffer -> decoder -> tcp/udp -> add packet -> your protocol
 - dir is short for direction. You use it to note which direction traffic is going
 - Everything leads to building a results package that has all the fields populated
+- The idea of a transaction seems to be something like a request followed by a response
 
 ### Wireshark parser
 - needs to parse hf fields

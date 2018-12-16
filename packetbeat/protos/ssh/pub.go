@@ -15,7 +15,7 @@ type transPub struct {
 	sendRequest  bool
 	sendResponse bool
 
-	results protos.Reporter
+	results protos.Reporter // TODO this is what ultimately has to be filled
 }
 
 func (pub *transPub) onTransaction(requ, resp *message) error {

@@ -624,6 +624,9 @@ func (http *httpPlugin) handleHTTP(
 		if isDebug {
 			debugf("Received request with tuple: %s", m.tcpTuple)
 		}
+		// TODO you can see here it is appending a request to a list of requests
+		// it looks like whenever it gets a response it then tries to correlate
+		// that to a request. That then becomes the transaction event
 		conn.requests.append(m)
 	} else {
 		if isDebug {
@@ -675,6 +678,7 @@ func (http *httpPlugin) correlate(conn *httpConnectionData) {
 	}
 }
 
+// TODO this function is filling in all the fields values
 func (http *httpPlugin) newTransaction(requ, resp *message) beat.Event {
 	status := common.OK_STATUS
 	if resp == nil {

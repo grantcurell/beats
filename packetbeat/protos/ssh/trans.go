@@ -8,6 +8,8 @@ import (
 	"github.com/elastic/beats/packetbeat/protos/applayer"
 )
 
+// TODO this is used to store requests and responses. What they really mean is
+// sender and receiver
 type transactions struct {
 	config *transactionConfig
 
@@ -23,7 +25,10 @@ type transactionConfig struct {
 
 type transactionHandler func(requ, resp *message) error
 
-// List of messages available for correlation
+// List of messages available for correlation. By examining the direction of
+// inbound traffic we can create a list of messages and the direction they are
+// going. You may have multiple messages arrive that are actually requests
+// and then we need to match them to responses.
 type messageList struct {
 	head, tail *message
 }
