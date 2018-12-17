@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This file is used to parse the inbound data received by packetbeat
-
 package ssh
 
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/elastic/beats/libbeat/common/streambuf"
 	"github.com/elastic/beats/packetbeat/protos/applayer"
 )
@@ -376,57 +376,7 @@ func (p *parser) append(data []byte) error {
 	return nil
 }
 
-func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) error {
-
-	/*
-		THIS IS A DUMP OF P
-		(*ssh.parser)(0xc0000d2a50)({
-		 buf: (streambuf.Buffer) {
-		  data: ([]uint8) (len=64 cap=64) {
-		   00000000  27 d7 78 60 d1 dc 11 5b  8a 4a 1e 3a 77 35 f6 ea  |'.x`...[.J.:w5..|
-		   00000010  40 73 b5 bb 14 4a ba 90  4e 2b e4 e3 41 bc 43 3d  |@s...J..N+..A.C=|
-		   00000020  23 b1 5c a3 ce ae 24 59  5b 0f 17 72 26 2c 8c e7  |#.\...$Y[..r&,..|
-		   00000030  f5 5a 66 80 ef e5 07 de  64 ff 20 8d 64 b0 31 e6  |.Zf.....d. .d.1.|
-		  },
-		  err: (error) <nil>,
-		  fixed: (bool) false,
-		  mark: (int) 0,
-		  offset: (int) 0,
-		  available: (int) 64
-		 },
-		 config: (*ssh.parserConfig)(0xc00008dcd8)({
-		  maxBytes: (int) 10485760
-		 }),
-		 message: (*ssh.message)(<nil>),
-		 onMessage: (func(*ssh.message) error) 0xfa4450,
-		 counter: (uint) 0,
-		 frameVersionStart: (uint32) 0,
-		 frameVersionEnd: (uint32) 0,
-		 frame_key_start: (int32) 0,
-		 frame_key_end: (int32) 0,
-		 frame_key_end_offset: (int) 0,
-		 kex_proposal: (*uint8)(<nil>),
-		 CLIENT_TO_SERVER_PROPOSAL: (int) 0,
-		 SERVER_TO_CLIENT_PROPOSAL: (int) 0,
-		 mac_proposals: ([2]*uint8) (len=2 cap=2) {
-		  (*uint8)(<nil>),
-		  (*uint8)(<nil>)
-		 },
-		 mac: (*uint8)(<nil>),
-		 mac_length: (int) -1,
-		 enc_proposals: ([2]*uint8) (len=2 cap=2) {
-		  (*uint8)(<nil>),
-		  (*uint8)(<nil>)
-		 },
-		 enc: (*uint8)(<nil>),
-		 comp_proposals: ([2]*uint8) (len=2 cap=2) {
-		  (*uint8)(<nil>),
-		  (*uint8)(<nil>)
-		 },
-		 comp: (*uint8)(<nil>),
-		 length_is_plaintext: (int) 0
-		})
-	*/
+func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) (*message, error) {
 
 	// EXTRA static int dissect_ssh(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
@@ -458,8 +408,10 @@ func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) error
 			col_clear(pinfo->cinfo, COL_INFO);
 	*/
 
+	var msg *message
+
 	if err := p.append(data); err != nil {
-		return err
+		return nil, err
 	}
 
 	for p.buf.Total() > 0 {
@@ -473,7 +425,7 @@ func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) error
 		msg, err := p.parse(data, dir)
 
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if msg == nil {
 			break // wait for more data
@@ -485,7 +437,7 @@ func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) error
 
 		// call message handler callback
 		if err := p.onMessage(msg); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -497,7 +449,7 @@ func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) error
 		}
 		st.pub.results(beat.Event{Timestamp: ts, Fields: fields})*/
 
-	return nil
+	return msg, nil
 }
 
 // Your protocol will begin parsing here. This is where you should start
@@ -513,55 +465,10 @@ func (p *parser) newMessage(ts time.Time) *message {
 // This function could be anything. In the other examples it's completely different with different
 // arguments each time
 func (p *parser) parse(data []byte, dir uint8) (*message, error) {
-	/*
-		Message looks like this
-		(*ssh.message)(0xc0019b8a50)({
-		 Message: (applayer.Message) {
-		  Ts: (time.Time) 2018-12-15 12:53:33.522029 -0600 CST,
-		  Tuple: (common.IPPortTuple) IpPortTuple src[<nil>:0] dst[<nil>:0],
-		  Transport: (applayer.Transport) udp,
-		  CmdlineTuple: (*common.CmdlineTuple)(<nil>),
-		  Direction: (applayer.NetDirection) 0,
-		  IsRequest: (bool) false,
-		  Size: (uint64) 0,
-		  Notes: ([]string) <nil>
-		 },
-		 isComplete: (bool) false,
-		 next: (*ssh.message)(<nil>)
-		})
-
-		goroutine 131 [running]:
-		runtime/debug.Stack(0x0, 0x50, 0xc00162dac8)
-			/usr/local/go/src/runtime/debug/stack.go:24 +0xa7
-		runtime/debug.PrintStack()
-			/usr/local/go/src/runtime/debug/stack.go:16 +0x22
-		github.com/elastic/beats/packetbeat/protos/ssh.(*parser).parse(0xc0012c0420, 0xc000a46000, 0x40, 0x40)
-			/root/go/src/github.com/elastic/beats/packetbeat/protos/ssh/parser.go:129 +0x26
-		github.com/elastic/beats/packetbeat/protos/ssh.(*parser).feed(0xc0012c0420, 0x25b9d258, 0xed3a60882, 0x25438e0, 0xc0016b40b8, 0x40, 0x40, 0xc00162db76, 0xc00160c518)
-			/root/go/src/github.com/elastic/beats/packetbeat/protos/ssh/parser.go:95 +0x8d
-		github.com/elastic/beats/packetbeat/protos/ssh.(*sshPlugin).Parse(0xc0015d3b80, 0xc0009be000, 0xc0011a60c8, 0xc0015d3b01, 0x0, 0x0, 0x0, 0x0)
-			/root/go/src/github.com/elastic/beats/packetbeat/protos/ssh/ssh.go:236 +0x175
-		github.com/elastic/beats/packetbeat/protos/tcp.(*TCPStream).addPacket(0xc00162dcb0, 0xc0009be000, 0xc00111b2a0)
-			/root/go/src/github.com/elastic/beats/packetbeat/protos/tcp/tcp.go:145 +0x159
-		github.com/elastic/beats/packetbeat/protos/tcp.(*TCP).Process(0xc0016d42d0, 0xc0015087c0, 0xc00111b2a0, 0xc0009be000)
-			/root/go/src/github.com/elastic/beats/packetbeat/protos/tcp/tcp.go:240 +0x327
-		github.com/elastic/beats/packetbeat/decoder.(*Decoder).onTCP(0xc00111ad00, 0xc0009be000)
-			/root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:334 +0xdd
-		github.com/elastic/beats/packetbeat/decoder.(*Decoder).process(0xc00111ad00, 0xc0009be000, 0x2c, 0x40, 0x193f160, 0xc00111ad00)
-			/root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:275 +0x1dd
-		github.com/elastic/beats/packetbeat/decoder.(*Decoder).OnPacket(0xc00111ad00, 0xc0016b40b8, 0x40, 0x40, 0xc001163500)
-			/root/go/src/github.com/elastic/beats/packetbeat/decoder/decoder.go:181 +0x317
-		github.com/elastic/beats/packetbeat/sniffer.(*Sniffer).Run(0xc0015d4b00, 0x0, 0x0)
-			/root/go/src/github.com/elastic/beats/packetbeat/sniffer/sniffer.go:210 +0x466
-		github.com/elastic/beats/packetbeat/beater.(*packetbeat).Run.func2(0xc001164720, 0xc0015fc000, 0xc001636b40)
-			/root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:225 +0x60
-		created by github.com/elastic/beats/packetbeat/beater.(*packetbeat).Run
-				/root/go/src/github.com/elastic/beats/packetbeat/beater/packetbeat.go:222 +0x129
-	*/
 
 	//lastOffset := 0
 	var offset uint
-	message := p.message
+	msg := p.message
 
 	// TODO I THINK I'LL BE ABLE TO GET RID OF THIS
 	//needDesegmentation := false
@@ -581,19 +488,17 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 			nodeData.frameVersionEnd = p.num
 		}
 
-		var isResponse bool
+		fmt.Println(dir)
 
 		if dir == 0 {
-			isResponse = false
-			message.info += "Client: "
-			message.isRequest = true
+			msg.info += "Client: "
+			msg.isRequest = true
 		} else {
-			isResponse = true
-			message.info += "Server: "
-			message.isRequest = false
+			msg.info += "Server: "
+			msg.isRequest = false
 		}
 
-		sshDissectProtocol(data, p, offset, isResponse, &nodeData.sshVersion, message)
+		sshDissectProtocol(data, p, offset, &nodeData.sshVersion, msg)
 
 		/* TODO NOT SURE I NEED THIS
 		if !needDesegmentation {
@@ -630,11 +535,12 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 
 	// Need to check the parser state. There's some parser object that's getting
 	// passed around. In HTTP it's line 41 of http.go and it's just a short.
-	return nil, errors.New("TODO: implement me")
+
+	return msg, errors.New("TODO: implement me")
 }
 
 // TODO I THINK I CAN GET RID OF THE NEED DESEGMENTATION
-func sshDissectProtocol(data []byte, p *parser, offset uint, isResponse bool, version *uint, message *message /*needDesegmentation bool*/) {
+func sshDissectProtocol(data []byte, p *parser, offset uint, version *uint, msg *message /*needDesegmentation bool*/) {
 
 	/*
 	 *  If the first packet do not contain the banner,
@@ -648,6 +554,7 @@ func sshDissectProtocol(data []byte, p *parser, offset uint, isResponse bool, ve
 		linelen := bytes.Index(data, []byte(string('\n')))
 
 		if bytes.Equal([]byte("SSH-2."), data[offset:6]) {
+			spew.Dump(msg)
 			*version = SSH_VERSION_2
 		} else if bytes.Equal([]byte("SSH-1.99-"), data[offset:9]) {
 			*version = SSH_VERSION_2
@@ -655,8 +562,8 @@ func sshDissectProtocol(data []byte, p *parser, offset uint, isResponse bool, ve
 			*version = SSH_VERSION_1
 		}
 
-		message.info += string(data[offset:linelen])
-		message.isComplete = true
+		msg.info += string(data[offset:linelen])
+		msg.isComplete = true
 
 		debugf("Found the start of SSH conversation. Version is %v", *version)
 	}

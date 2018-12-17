@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"fmt"
 	"os"
 	"runtime/debug"
 
@@ -21,7 +22,7 @@ func (pub *transPub) onTransaction(requ, resp *message) error {
 	if pub.results == nil {
 		return nil
 	}
-
+	fmt.Println("HERE2")
 	pub.results(pub.createEvent(requ, resp))
 	return nil
 }
@@ -53,6 +54,8 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 		"bytes_out":    resp.Size,
 		"src":          src,
 		"dst":          dst,
+		"Client Info":  requ.info,
+		"Server Info":  resp.info,
 	}
 
 	// add processing notes/errors to event
@@ -60,12 +63,14 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 		fields["notes"] = append(requ.Notes, resp.Notes...)
 	}
 
-	if pub.sendRequest {
-		// fields["request"] =
-	}
-	if pub.sendResponse {
-		// fields["response"] =
-	}
+	/*
+		EXTRA
+		if pub.sendRequest {
+			// fields["request"] =
+		}
+		if pub.sendResponse {
+			// fields["response"] =
+		}*/
 
 	return beat.Event{
 		Timestamp: requ.Ts,
