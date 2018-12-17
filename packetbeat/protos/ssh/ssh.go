@@ -22,7 +22,6 @@ type sshPlugin struct {
 // There are two streams in any conversation. These represent the two different
 // directions traffic could flow.
 type connection struct {
-
 	// [0] is the client's SSH stream, [1] is server's
 	streams [2]*stream
 	trans   transactions
@@ -284,7 +283,7 @@ func (sp *sshPlugin) Parse(
 	   })
 	*/
 
-	if err := st.parser.feed(pkt.Ts, pkt.Payload, dir); err != nil { // TODO this is where the parsing is happening
+	if err := st.parser.feed(sp, pkt.Ts, pkt.Payload, dir); err != nil {
 		debugf("%v, dropping TCP stream for error in direction %v.", err, dir)
 		sp.onDropConnection(conn)
 		return nil

@@ -1,0 +1,207 @@
+
+        - name: protocol
+          type: keyword
+
+        - name: packet_length
+          type: integer
+
+        - name: packet_length_encrypted
+          type: binary
+
+        - name: padding_length
+          type: short
+
+        - name: padding_length_encrypted
+          type: binary
+
+        - name: padding_length
+          type: short
+
+        - name: payload
+          type: binary
+
+        - name: encrypted_packet
+          type: binary
+
+        - name: padding_string
+          type: binary
+
+        - name: message_authentication_code
+          type: binary
+
+        - name: ssh_message_code
+          type: short
+
+        - name: sshv2_message_code
+          type: short
+
+        - name: sshv2_key_exchange_diffie_hellman_message_code
+          type: short
+
+        - name: sshv2_key_exchange_diffie_hellman_gex_message_code
+          type: short
+
+        - name: sshv2_key_exchange_elliptical_curve_diffie_hellman_message_code
+          type: short
+
+        - name: cookie
+          type: binary
+
+        - name: kex_algorithms_string
+          type: keyword
+
+        - name: server_host_key_algorithms_string
+          type: keyword
+
+        - name: encryption_algorithms_client_to_server_string
+          type: keyword
+
+        - name: encryption_algorithms_server_to_client_string
+          type: keyword
+
+        - name: mac_algorithms_client_to_server_string
+          type: keyword
+
+        - name: mac_algorithms_server_to_client_string
+          type: keyword
+
+        - name: compression_algorithms_client_to_server_string
+          type: keyword
+
+        - name: compression_algorithms_server_to_client_string
+          type: keyword
+
+        - name: languages_client_to_server_string
+          type: keyword
+
+        - name: languages_server_to_client_string
+          type: keyword
+
+        - name: kex_algorithms_length
+          type: integer
+
+        - name: server_host_key_algorithms_length
+          type: integer
+
+        - name: encryption_algorithms_client_to_server_length
+          type: integer
+
+        - name: encryption_algorithms_server_to_client_length
+          type: integer
+
+        - name: mac_algorithms_client_to_server_length
+          type: integer
+
+        - name: mac_algorithms_server_to_client_length
+          type: integer
+
+        - name: compression_algorithms_client_to_server_length
+          type: integer
+
+        - name: compression_algorithms_server_to_client_length
+          type: integer
+
+        - name: languages_client_to_server_length
+          type: integer
+
+        - name: languages_server_to_client_length
+          type: integer
+
+        - name: first_kex_packet_follows
+          type: short
+
+        - name: reserved
+          type: binary
+
+        - name: host_key_length
+          type: integer
+
+        - name: host_key_type_length
+          type: integer
+
+        - name: host_key_type
+          type: integer
+
+        - name: host_key_data
+          type: binary
+
+        - name: rsa_modulus_n
+          type: binary
+
+        - name: rsa_public_exponent_(e)
+          type: binary
+
+        - name: dsa_prime_modulus_(p)
+          type: binary
+
+        - name: dsa_prime_divisor_(q)
+          type: binary
+
+        - name: dsa_subgroup_generator_(g)
+          type: binary
+
+        - name: dsa_public_key_(y)
+          type: binary
+
+        - name: ecdsa_elliptic_curve_identifier
+          type: keyword
+
+        - name: ecdsa_elliptic_curve_identifier_length
+          type: integer
+
+        - name: ecdsa_public_key_(q)
+          type: binary
+
+        - name: ecdsa_public_key_length
+          type: integer
+
+        - name: kex_h_signature
+          type: binary
+
+        - name: kex_h_signature_length
+          type: integer
+
+        - name: dh_client_e
+          type: binary
+
+        - name: dh_server_f
+          type: binary
+
+        - name: dh_gex_min
+          type: integer
+
+        - name: minimal_acceptable_group_size
+          type: integer
+
+        - name: dh_gex_number_of_bits
+          type: integer
+
+        - name: preferred_group_size
+          type: integer
+
+        - name: dh_gex_max
+          type: integer
+
+        - name: maximal_acceptable_group_size
+          type: integer
+
+        - name: dh_gex_modulus_(p)
+          type: binary
+
+        - name: dh_gex_base_(g)
+          type: binary
+
+        - name: ecdh_client's_ephemeral_public_key_(q_c)
+          type: binary
+
+        - name: ecdh_client's_ephemeral_public_key_length
+          type: binary
+
+        - name: ecdh_server's_ephemeral_public_key_(q_s)
+          type: binary
+
+        - name: ecdh_server's_ephemeral_public_key_length
+          type: binary
+
+        - name: multi_precision_integer_length
+          type: integer

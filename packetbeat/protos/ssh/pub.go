@@ -10,7 +10,6 @@ import (
 	"github.com/elastic/beats/packetbeat/protos"
 )
 
-// Transaction Publisher.
 type transPub struct {
 	sendRequest  bool
 	sendResponse bool

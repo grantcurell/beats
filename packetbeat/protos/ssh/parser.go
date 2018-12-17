@@ -58,6 +58,8 @@ type message struct {
 
 	info string
 
+	isRequest bool
+
 	// list element use by 'transactions' for correlation
 	next *message
 }
@@ -374,7 +376,7 @@ func (p *parser) append(data []byte) error {
 	return nil
 }
 
-func (p *parser) feed(ts time.Time, data []byte, dir uint8) error {
+func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) error {
 
 	/*
 		THIS IS A DUMP OF P
@@ -469,6 +471,7 @@ func (p *parser) feed(ts time.Time, data []byte, dir uint8) error {
 
 		// This is where we actually dissect a specific message
 		msg, err := p.parse(data, dir)
+
 		if err != nil {
 			return err
 		}
@@ -485,6 +488,14 @@ func (p *parser) feed(ts time.Time, data []byte, dir uint8) error {
 			return err
 		}
 	}
+
+	/*
+		EXAMPLE OF PUBLISHING
+		fields := common.MapStr{
+			"type":    "ssh",
+			"version": 2,
+		}
+		st.pub.results(beat.Event{Timestamp: ts, Fields: fields})*/
 
 	return nil
 }
@@ -565,6 +576,7 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 	nodeData.counter++
 
 	if afterVersionStart && beforeVersionStart && bytes.Equal([]byte("SSH-"), data[offset:4]) {
+
 		if nodeData.frameVersionEnd == 0 {
 			nodeData.frameVersionEnd = p.num
 		}
@@ -574,12 +586,14 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 		if dir == 0 {
 			isResponse = false
 			message.info += "Client: "
+			message.isRequest = true
 		} else {
 			isResponse = true
 			message.info += "Server: "
+			message.isRequest = false
 		}
 
-		offset = sshDissectProtocol(data, p, offset, isResponse, &nodeData.sshVersion)
+		sshDissectProtocol(data, p, offset, isResponse, &nodeData.sshVersion, message)
 
 		/* TODO NOT SURE I NEED THIS
 		if !needDesegmentation {
@@ -592,10 +606,10 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 			offset = sshDissectEncryptedPacket( /*tvb, pinfo, &global_data->peer_data[is_response], offset, ssh_tree*/ )
 			break
 		case SSH_VERSION_1:
-			offset = sshDissectSsh1( /*tvb, pinfo, global_data, offset, ssh_tree, is_response, &need_desegmentation*/ )
+			offset = sshDissectSSH1( /*tvb, pinfo, global_data, offset, ssh_tree, is_response, &need_desegmentation*/ )
 			break
 		case SSH_VERSION_2:
-			offset = sshDissectSsh2( /*tvb, pinfo, global_data, offset, ssh_tree, is_response, &need_desegmentation*/ )
+			offset = sshDissectSSH2( /*tvb, pinfo, global_data, offset, ssh_tree, is_response, &need_desegmentation*/ )
 			break
 		}
 	}
@@ -620,13 +634,7 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 }
 
 // TODO I THINK I CAN GET RID OF THE NEED DESEGMENTATION
-func sshDissectProtocol(data []byte, p *parser, offset uint, isResponse bool, version *uint /*needDesegmentation bool*/) uint {
-
-	var (
-		//remainLength int
-		linelen int
-		//protolen     int
-	)
+func sshDissectProtocol(data []byte, p *parser, offset uint, isResponse bool, version *uint, message *message /*needDesegmentation bool*/) {
 
 	/*
 	 *  If the first packet do not contain the banner,
@@ -634,11 +642,11 @@ func sshDissectProtocol(data []byte, p *parser, offset uint, isResponse bool, ve
 	 */
 	if !bytes.Equal([]byte("SSH-"), data[offset:4]) {
 		// TODO NEED TO COME BACK TO THIS
-		//offset = sshDissectEncryptedPacket(tvb, pinfo, &global_data->peer_data[is_response], offset, tree);
-		return offset
-	}
+		sshDissectEncryptedPacket( /*tvb, pinfo, &global_data->peer_data[is_response], offset, tree*/ )
+	} else {
 
-	if !isResponse {
+		linelen := bytes.Index(data, []byte(string('\n')))
+
 		if bytes.Equal([]byte("SSH-2."), data[offset:6]) {
 			*version = SSH_VERSION_2
 		} else if bytes.Equal([]byte("SSH-1.99-"), data[offset:9]) {
@@ -646,6 +654,11 @@ func sshDissectProtocol(data []byte, p *parser, offset uint, isResponse bool, ve
 		} else if bytes.Equal([]byte("SSH-1."), data[offset:6]) {
 			*version = SSH_VERSION_1
 		}
+
+		message.info += string(data[offset:linelen])
+		message.isComplete = true
+
+		debugf("Found the start of SSH conversation. Version is %v", *version)
 	}
 
 	/*
@@ -655,14 +668,6 @@ func sshDissectProtocol(data []byte, p *parser, offset uint, isResponse bool, ve
 		     *
 		     * This means we're guaranteed that "remainLength" is positive.
 	*/
-
-	// TODO IT LOOKS LIKE I CAN GET RID OF THIS IF I DON'T USE THE OTHER BLOCK
-	//remainLength = len(data) - offset
-
-	linelen = bytes.Index(data, []byte(string('\n')))
-
-	// TODO NOT SURE I DID THIS RIGHT
-	// linelen = tvb_find_guint8(tvb, offset, -1, '\n');
 
 	/*
 			TODO NEED TO COME BACK TO THIS
@@ -687,19 +692,16 @@ func sshDissectProtocol(data []byte, p *parser, offset uint, isResponse bool, ve
 		            protolen = linelen - 1;
 			}*/
 
-	offset += linelen
-
-	return offset
 }
 
 func sshDissectEncryptedPacket() uint {
 	return 1
 }
 
-func sshDissectSsh1() uint {
+func sshDissectSSH1() uint {
 	return 1
 }
 
-func sshDissectSsh2() uint {
+func sshDissectSSH2() uint {
 	return 1
 }
