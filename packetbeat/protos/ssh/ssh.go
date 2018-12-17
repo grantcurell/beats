@@ -17,7 +17,6 @@
 package ssh
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/elastic/beats/libbeat/common"
@@ -179,17 +178,10 @@ func (sp *sshPlugin) Parse(
 
 	}
 
-	msg, err := st.parser.feed(sp, pkt.Ts, pkt.Payload, dir)
-
-	if err != nil {
+	if err := st.parser.feed(sp, pkt.Ts, pkt.Payload, dir); err != nil {
 		debugf("%v, dropping TCP stream for error in direction %v.", err, dir)
 		sp.onDropConnection(conn)
 		return nil
-	}
-
-	if msg.isComplete {
-		fmt.Println("Complete SSH message found")
-		conn.trans.onMessage(tcptuple.IPPort(), dir, msg)
 	}
 
 	return conn

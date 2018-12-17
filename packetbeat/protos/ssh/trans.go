@@ -18,6 +18,7 @@ package ssh
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/elastic/beats/libbeat/common"
@@ -71,12 +72,12 @@ func (trans *transactions) onMessage(
 			debugf("Received request with tuple: %s", tuple)
 		}
 		fmt.Println("SSH request detected.")
+		os.Exit(3)
 		err = trans.onRequest(tuple, dir, msg)
 	} else {
 		if isDebug {
 			debugf("Received response with tuple: %s", tuple)
 		}
-		fmt.Println("SSH response detected.")
 		err = trans.onResponse(tuple, dir, msg)
 	}
 

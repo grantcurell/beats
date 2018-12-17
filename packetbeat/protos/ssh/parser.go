@@ -20,10 +20,10 @@ package ssh
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+
 	"github.com/elastic/beats/libbeat/common/streambuf"
 	"github.com/elastic/beats/packetbeat/protos/applayer"
 )
@@ -376,7 +376,7 @@ func (p *parser) append(data []byte) error {
 	return nil
 }
 
-func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) (*message, error) {
+func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) error {
 
 	// EXTRA static int dissect_ssh(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
@@ -408,10 +408,8 @@ func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) (*mes
 			col_clear(pinfo->cinfo, COL_INFO);
 	*/
 
-	var msg *message
-
 	if err := p.append(data); err != nil {
-		return nil, err
+		return err
 	}
 
 	for p.buf.Total() > 0 {
@@ -425,7 +423,7 @@ func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) (*mes
 		msg, err := p.parse(data, dir)
 
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if msg == nil {
 			break // wait for more data
@@ -436,8 +434,9 @@ func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) (*mes
 		p.message = nil
 
 		// call message handler callback
+		spew.Dump(msg)
 		if err := p.onMessage(msg); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -449,10 +448,9 @@ func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) (*mes
 		}
 		st.pub.results(beat.Event{Timestamp: ts, Fields: fields})*/
 
-	return msg, nil
+	return nil
 }
 
-// Your protocol will begin parsing here. This is where you should start
 func (p *parser) newMessage(ts time.Time) *message {
 
 	return &message{
@@ -462,8 +460,6 @@ func (p *parser) newMessage(ts time.Time) *message {
 	}
 }
 
-// This function could be anything. In the other examples it's completely different with different
-// arguments each time
 func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 
 	//lastOffset := 0
@@ -487,8 +483,6 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 		if nodeData.frameVersionEnd == 0 {
 			nodeData.frameVersionEnd = p.num
 		}
-
-		fmt.Println(dir)
 
 		if dir == 0 {
 			msg.info += "Client: "
@@ -533,10 +527,9 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 	// TODO NEED TO MAKE SURE THIS IS COVERED APPROPRIATELY
 	//return tvb_captured_length(tvb);
 
-	// Need to check the parser state. There's some parser object that's getting
-	// passed around. In HTTP it's line 41 of http.go and it's just a short.
-
-	return msg, errors.New("TODO: implement me")
+	// TODO need to add the error
+	//return msg, errors.New("TODO: implement me")
+	return msg, nil
 }
 
 // TODO I THINK I CAN GET RID OF THE NEED DESEGMENTATION
@@ -551,10 +544,9 @@ func sshDissectProtocol(data []byte, p *parser, offset uint, version *uint, msg 
 		sshDissectEncryptedPacket( /*tvb, pinfo, &global_data->peer_data[is_response], offset, tree*/ )
 	} else {
 
-		linelen := bytes.Index(data, []byte(string('\n')))
+		linelen := bytes.Index(data, []byte(string('\r')))
 
 		if bytes.Equal([]byte("SSH-2."), data[offset:6]) {
-			spew.Dump(msg)
 			*version = SSH_VERSION_2
 		} else if bytes.Equal([]byte("SSH-1.99-"), data[offset:9]) {
 			*version = SSH_VERSION_2
