@@ -295,6 +295,9 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 - dir is short for direction. You use it to note which direction traffic is going
 - Everything leads to building a results package that has all the fields populated
 - The idea of a transaction seems to be something like a request followed by a response
+- In the http module, in the parse function it calls a message complete function. This function then calls handleHTTP. I'm not actually sure why messageComplete exists because it is just a passthrough for handleHTTP. handleHTTP then appends requests to the connection and calls http.correlate.
+- httpcorrelate checks the requests and responses for that connection. If they both exist
+it publishes the transaction with http.publishTransaction
 
 ### Wireshark parser
 - needs to parse hf fields
