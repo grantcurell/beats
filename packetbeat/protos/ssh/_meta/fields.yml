@@ -1,0 +1,18 @@
+# This file defines the fields which will appear in Kibana in heirarchical order
+
+- key: ssh
+  title: "SSH"
+  description: SSH-specific event fields
+  fields:
+    - name: ssh
+      type: group
+      fields:
+        - name: version
+          type: integer
+          possible_values:
+            - 0
+            - 1
+            - 2
+
+
+            

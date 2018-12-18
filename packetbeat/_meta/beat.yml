@@ -82,6 +82,11 @@ packetbeat.protocols:
   # the Redis protocol by commenting out the list of ports.
   ports: [6379]
 
+- type: SSH
+  # Configure the ports where to listen for SSH traffic. You can disable
+  # the SSH protocol by commenting out the list of ports.
+  ports: [22]
+
 - type: thrift
   # Configure the ports where to listen for Thrift-RPC traffic. You can disable
   # the Thrift-RPC protocol by commenting out the list of ports.

@@ -15,21 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package main
+package ssh
 
 import (
-	"os"
-
-	"github.com/elastic/beats/packetbeat/cmd"
+	"github.com/elastic/beats/packetbeat/config"
+	"github.com/elastic/beats/packetbeat/protos"
 )
 
-var Name = "packetbeat"
+type sshConfig struct {
+	config.ProtocolCommon `config:",inline"`
+}
 
-// Sets up and Runs Packetbeat. Execute refers to the cobra command line library
-// see https://github.com/spf13/cobra for more information. This will effectively
-// run the beat.
-func main() {
-	if err := cmd.RootCmd.Execute(); err != nil {
-		os.Exit(1)
+var (
+	defaultConfig = sshConfig{
+		ProtocolCommon: config.ProtocolCommon{
+			TransactionTimeout: protos.DefaultTransactionExpiration,
+		},
 	}
+)
+
+func (c *sshConfig) Validate() error {
+	return nil
 }
