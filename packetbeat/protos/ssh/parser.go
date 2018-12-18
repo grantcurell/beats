@@ -22,8 +22,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/elastic/beats/libbeat/common/streambuf"
 	"github.com/elastic/beats/packetbeat/protos/applayer"
 )
@@ -376,7 +374,7 @@ func (p *parser) append(data []byte) error {
 	return nil
 }
 
-func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) error {
+func (p *parser) feed(ts time.Time, data []byte, dir uint8, isRequest bool) error {
 
 	// EXTRA static int dissect_ssh(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
 
@@ -419,8 +417,16 @@ func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) error
 			p.message = p.newMessage(ts)
 		}
 
+		if isRequest {
+			p.message.info += "Client: "
+			p.message.isRequest = true
+		} else {
+			p.message.info += "Server: "
+			p.message.isRequest = false
+		}
+
 		// This is where we actually dissect a specific message
-		msg, err := p.parse(data, dir)
+		msg, err := p.parse(p.message, data, dir)
 
 		if err != nil {
 			return err
@@ -434,7 +440,6 @@ func (p *parser) feed(st *sshPlugin, ts time.Time, data []byte, dir uint8) error
 		p.message = nil
 
 		// call message handler callback
-		spew.Dump(msg)
 		if err := p.onMessage(msg); err != nil {
 			return err
 		}
@@ -460,11 +465,10 @@ func (p *parser) newMessage(ts time.Time) *message {
 	}
 }
 
-func (p *parser) parse(data []byte, dir uint8) (*message, error) {
+func (p *parser) parse(msg *message, data []byte, dir uint8) (*message, error) {
 
 	//lastOffset := 0
 	var offset uint
-	msg := p.message
 
 	// TODO I THINK I'LL BE ABLE TO GET RID OF THIS
 	//needDesegmentation := false
@@ -482,14 +486,6 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 
 		if nodeData.frameVersionEnd == 0 {
 			nodeData.frameVersionEnd = p.num
-		}
-
-		if dir == 0 {
-			msg.info += "Client: "
-			msg.isRequest = true
-		} else {
-			msg.info += "Server: "
-			msg.isRequest = false
 		}
 
 		sshDissectProtocol(data, p, offset, &nodeData.sshVersion, msg)
@@ -529,6 +525,7 @@ func (p *parser) parse(data []byte, dir uint8) (*message, error) {
 
 	// TODO need to add the error
 	//return msg, errors.New("TODO: implement me")
+
 	return msg, nil
 }
 

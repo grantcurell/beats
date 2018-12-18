@@ -17,6 +17,7 @@
 package ssh
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/elastic/beats/libbeat/common"
@@ -178,7 +179,22 @@ func (sp *sshPlugin) Parse(
 
 	}
 
-	if err := st.parser.feed(sp, pkt.Ts, pkt.Payload, dir); err != nil {
+	/*
+		Check to see if the src port of the packet is in the list of ports
+		attributed to the service. If it is, then mark this as a response otherwise
+		mark it as a request
+	*/
+	isResponse := false
+	for _, port := range sp.GetPorts() {
+		if uint16(port) == pkt.Tuple.SrcPort {
+			isResponse = true
+			fmt.Println("here")
+		}
+	}
+
+	// TODO I should flip everything to isResponse so that this inverse is less
+	// confusing
+	if err := st.parser.feed(pkt.Ts, pkt.Payload, dir, !isResponse); err != nil {
 		debugf("%v, dropping TCP stream for error in direction %v.", err, dir)
 		sp.onDropConnection(conn)
 		return nil
