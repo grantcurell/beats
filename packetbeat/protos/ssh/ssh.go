@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 
@@ -186,6 +188,7 @@ func (sp *sshPlugin) Parse(
 	*/
 	isResponse := false
 	for _, port := range sp.GetPorts() {
+		spew.Dump(uint16(port), pkt.Tuple.SrcPort)
 		if uint16(port) == pkt.Tuple.SrcPort {
 			isResponse = true
 			fmt.Println("here")
