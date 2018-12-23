@@ -59,8 +59,6 @@ type message struct {
 
 	info string
 
-	isRequest bool
-
 	// list element use by 'transactions' for correlation
 	next *message
 }
@@ -390,19 +388,19 @@ func (p *parser) feed(ts time.Time, data []byte, dir uint8, isRequest bool) erro
 			p.message = p.newMessage(ts)
 		}
 
-		if isRequest {
-			p.message.info += "Client: "
-			p.message.isRequest = true
-		} else {
-			p.message.info += "Server: "
-			p.message.isRequest = false
-		}
-
 		fmt.Println("HERE4")
 		spew.Dump(p.buf.Total())
 
 		// This is where we actually dissect a specific message
 		msg, err := p.parse(p.message, data, dir)
+
+		if isRequest {
+			msg.info += "Client: "
+			msg.IsRequest = true
+		} else {
+			msg.info += "Server: "
+			msg.IsRequest = false
+		}
 
 		if err != nil {
 			return err
@@ -421,15 +419,9 @@ func (p *parser) feed(ts time.Time, data []byte, dir uint8, isRequest bool) erro
 		if err := p.onMessage(msg); err != nil {
 			return err
 		}
-	}
 
-	/*
-		EXAMPLE OF PUBLISHING
-		fields := common.MapStr{
-			"type":    "ssh",
-			"version": 2,
-		}
-		st.pub.results(beat.Event{Timestamp: ts, Fields: fields})*/
+		break
+	}
 
 	return nil
 }
