@@ -38,6 +38,8 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 	// resp_time in milliseconds
 	responseTime := int32(resp.Ts.Sub(requ.Ts).Nanoseconds() / 1e6)
 
+	fmt.Println("HERE11")
+
 	src := &common.Endpoint{
 		IP:   requ.Tuple.SrcIP.String(),
 		Port: requ.Tuple.SrcPort,
@@ -48,6 +50,8 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 		Port: requ.Tuple.DstPort,
 		Proc: string(requ.CmdlineTuple.Dst),
 	}
+
+	fmt.Println("HERE12")
 
 	fields := common.MapStr{
 		"type":         "ssh",
