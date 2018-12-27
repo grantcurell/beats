@@ -2,8 +2,8 @@ package ssh
 
 import (
 	"fmt"
-	"os"
-	"runtime/debug"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/elastic/beats/libbeat/beat"
 	"github.com/elastic/beats/libbeat/common"
@@ -24,16 +24,21 @@ func (pub *transPub) onTransaction(requ, resp *message) error {
 	}
 	fmt.Println("HERE2")
 	pub.results(pub.createEvent(requ, resp))
+	/*fields := common.MapStr{
+		"type":    "ssh",
+		"version": 2,
+	}
+	pub.results(beat.Event{Timestamp: requ.Ts, Fields: fields})*/
 	return nil
 }
 
 func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 	status := common.OK_STATUS
-	debug.PrintStack()
-	os.Exit(3)
 
 	// resp_time in milliseconds
 	responseTime := int32(resp.Ts.Sub(requ.Ts).Nanoseconds() / 1e6)
+
+	fmt.Println("HERE11")
 
 	src := &common.Endpoint{
 		IP:   requ.Tuple.SrcIP.String(),
@@ -45,6 +50,8 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 		Port: requ.Tuple.DstPort,
 		Proc: string(requ.CmdlineTuple.Dst),
 	}
+
+	fmt.Println("HERE12")
 
 	fields := common.MapStr{
 		"type":         "ssh",
@@ -62,6 +69,9 @@ func (pub *transPub) createEvent(requ, resp *message) beat.Event {
 	if len(requ.Notes)+len(resp.Notes) > 0 {
 		fields["notes"] = append(requ.Notes, resp.Notes...)
 	}
+
+	spew.Dump(fields)
+	fmt.Println("HERE10")
 
 	/*
 		EXTRA

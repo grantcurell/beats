@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 
@@ -171,6 +173,12 @@ func (sp *sshPlugin) Parse(
 
 	if st == nil {
 		st = &stream{} // Create a new stream if one doesn't already exist
+
+		// The below function provides two arguments - the first is the parser
+		// configuration. The second is a functio that simplifies calling
+		// onMessage from within Parser. Instead of having to pass around
+		// tcptuple, and a pointer to conn.trans, we pass this function which
+		// only requires parser to provide the message.
 		st.parser.init(&sp.parserConfig, func(msg *message) error {
 			return conn.trans.onMessage(tcptuple.IPPort(), dir, msg)
 		})
@@ -186,6 +194,7 @@ func (sp *sshPlugin) Parse(
 	*/
 	isResponse := false
 	for _, port := range sp.GetPorts() {
+		spew.Dump(uint16(port), pkt.Tuple.SrcPort)
 		if uint16(port) == pkt.Tuple.SrcPort {
 			isResponse = true
 			fmt.Println("here")
@@ -198,6 +207,8 @@ func (sp *sshPlugin) Parse(
 		debugf("%v, dropping TCP stream for error in direction %v.", err, dir)
 		sp.onDropConnection(conn)
 		return nil
+	} else {
+
 	}
 
 	return conn

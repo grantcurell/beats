@@ -18,11 +18,11 @@ package ssh
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
+	"github.com/elastic/beats/packetbeat/procs"
 	"github.com/elastic/beats/packetbeat/protos/applayer"
 )
 
@@ -65,14 +65,15 @@ func (trans *transactions) onMessage(
 
 	msg.Tuple = *tuple
 	msg.Transport = applayer.TransportTCP
-	//msg.CmdlineTuple = procs.ProcWatcher.FindProcessesTuple(&msg.Tuple)
+	msg.CmdlineTuple = procs.ProcWatcher.FindProcessesTuple(&msg.Tuple, applayer.TransportTCP)
+
+	fmt.Println("HERE9")
 
 	if msg.IsRequest {
 		if isDebug {
 			debugf("Received request with tuple: %s", tuple)
 		}
 		fmt.Println("SSH request detected.")
-		os.Exit(3)
 		err = trans.onRequest(tuple, dir, msg)
 	} else {
 		if isDebug {

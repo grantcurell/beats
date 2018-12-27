@@ -20,7 +20,10 @@ package ssh
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/elastic/beats/libbeat/common/streambuf"
 	"github.com/elastic/beats/packetbeat/protos/applayer"
@@ -55,8 +58,6 @@ type message struct {
 	isComplete bool
 
 	info string
-
-	isRequest bool
 
 	// list element use by 'transactions' for correlation
 	next *message
@@ -376,36 +377,6 @@ func (p *parser) append(data []byte) error {
 
 func (p *parser) feed(ts time.Time, data []byte, dir uint8, isRequest bool) error {
 
-	// EXTRA static int dissect_ssh(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* data _U_)
-
-	// EXTRA proto_tree  *ssh_tree
-	// EXTRA proto_item  *ti
-	// EXTRA conversation_t *conversation
-
-	/*
-
-
-		/*
-			EXTRA I CAN PROBABLY GET RID OF THIS BLOCK. I DON'T HAVE A COLUMN TO SET
-			IT JUST NEEDS TO BE SET IN THE FIELDS
-			version = global_data->version;
-
-			switch(version) {
-			case SSH_VERSION_UNKNOWN:
-				col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSH");
-				break;
-			case SSH_VERSION_1:
-				col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSHv1");
-				break;
-			case SSH_VERSION_2:
-				col_set_str(pinfo->cinfo, COL_PROTOCOL, "SSHv2");
-				break;
-
-			}
-
-			col_clear(pinfo->cinfo, COL_INFO);
-	*/
-
 	if err := p.append(data); err != nil {
 		return err
 	}
@@ -417,16 +388,19 @@ func (p *parser) feed(ts time.Time, data []byte, dir uint8, isRequest bool) erro
 			p.message = p.newMessage(ts)
 		}
 
-		if isRequest {
-			p.message.info += "Client: "
-			p.message.isRequest = true
-		} else {
-			p.message.info += "Server: "
-			p.message.isRequest = false
-		}
+		fmt.Println("HERE4")
+		spew.Dump(p.buf.Total())
 
 		// This is where we actually dissect a specific message
 		msg, err := p.parse(p.message, data, dir)
+
+		if isRequest {
+			msg.info += "Client: "
+			msg.IsRequest = true
+		} else {
+			msg.info += "Server: "
+			msg.IsRequest = false
+		}
 
 		if err != nil {
 			return err
@@ -439,19 +413,15 @@ func (p *parser) feed(ts time.Time, data []byte, dir uint8, isRequest bool) erro
 		p.buf.Reset()
 		p.message = nil
 
+		fmt.Println("HERE8")
+
 		// call message handler callback
 		if err := p.onMessage(msg); err != nil {
 			return err
 		}
-	}
 
-	/*
-		EXAMPLE OF PUBLISHING
-		fields := common.MapStr{
-			"type":    "ssh",
-			"version": 2,
-		}
-		st.pub.results(beat.Event{Timestamp: ts, Fields: fields})*/
+		break
+	}
 
 	return nil
 }
@@ -488,7 +458,11 @@ func (p *parser) parse(msg *message, data []byte, dir uint8) (*message, error) {
 			nodeData.frameVersionEnd = p.num
 		}
 
+		fmt.Println("here5")
+
 		sshDissectProtocol(data, p, offset, &nodeData.sshVersion, msg)
+
+		fmt.Println("HERE6")
 
 		/* TODO NOT SURE I NEED THIS
 		if !needDesegmentation {
@@ -496,6 +470,7 @@ func (p *parser) parse(msg *message, data []byte, dir uint8) (*message, error) {
 			p.version = version
 		}*/
 	} else {
+		fmt.Println("HERE7")
 		switch nodeData.sshVersion {
 		case SSH_VERSION_UNKNOWN:
 			offset = sshDissectEncryptedPacket( /*tvb, pinfo, &global_data->peer_data[is_response], offset, ssh_tree*/ )
@@ -550,6 +525,8 @@ func sshDissectProtocol(data []byte, p *parser, offset uint, version *uint, msg 
 		} else if bytes.Equal([]byte("SSH-1."), data[offset:6]) {
 			*version = SSH_VERSION_1
 		}
+
+		spew.Dump(version)
 
 		msg.info += string(data[offset:linelen])
 		msg.isComplete = true
